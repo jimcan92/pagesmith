@@ -37,6 +37,11 @@ Send it to your team. They load it with **Template → Import template…**, or 
    - **Portrait / Landscape** and **Background**. You can change the background of any page, even in the
      middle of the document. **Use for following pages** applies it to all the pages after this one.
    - **Text**: like Word (bold, headings, lists, alignment, tables). You can paste from Word.
+     Tables pasted from Word or Google Docs keep their column widths.
+     When the cursor is inside a table, a **Table** toolbar appears with these tools:
+     add a row above or below, add a column left or right, delete a row, delete a column,
+     **Equal widths**, and **Delete table**.
+     To change a column's width, drag its border.
    - **Attachments**: drop photos or PDFs, click to browse, or paste a screenshot (Ctrl+V).
      Pictures fit inside their boxes. ⟳ rotates a photo, ⇲ moves it to its own page.
    - **Layout**: Auto, a fixed grid (1, 2, 3, 4, 6, 9 per page), or **Manual (drag & resize)**.

@@ -138,7 +138,54 @@
 
   /* ------------------------------------------------------------------ sanitizer (pasted / imported text) */
   const ALLOWED = new Set(['P', 'BR', 'B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'SPAN', 'DIV', 'H1', 'H2', 'H3', 'H4',
-    'UL', 'OL', 'LI', 'TABLE', 'THEAD', 'TBODY', 'TR', 'TD', 'TH', 'BLOCKQUOTE', 'SUB', 'SUP', 'FONT', 'HR']);
+    'UL', 'OL', 'LI', 'TABLE', 'THEAD', 'TBODY', 'TR', 'TD', 'TH', 'COLGROUP', 'COL', 'BLOCKQUOTE', 'SUB', 'SUP', 'FONT', 'HR']);
+
+  /** Read a width like "283.5pt", "2in", "120" (px) or "25%" → { px } or { pct }. */
+  function parseWidth(v) {
+    const m = String(v || '').trim().match(/^([\d.]+)\s*(px|pt|in|cm|mm|%)?$/i);
+    if (!m || !(+m[1] > 0)) return null;
+    const n = +m[1], u = (m[2] || 'px').toLowerCase();
+    if (u === '%') return { pct: n };
+    return { px: n * ({ px: 1, pt: 96 / 72, in: 96, cm: 96 / 2.54, mm: 96 / 25.4 }[u]) };
+  }
+
+  /**
+   * Keep a table's column widths (from Word / Google Docs / our own <col> tags) as percentages
+   * in a <colgroup>, with a fixed table layout, so one long cell can't push the other columns aside.
+   */
+  function fixTableColumns(table) {
+    const rows = Array.from(table.rows || []);
+    const nCols = Math.max(0, ...rows.map((r) => Array.from(r.cells).reduce((s, c) => s + (+c.getAttribute('colspan') || 1), 0)));
+    if (!nCols) return;
+    let widths = null;
+    const cols = Array.from(table.querySelectorAll('col'));
+    if (cols.length) {
+      const ws = [];
+      cols.forEach((c) => { for (let k = 0; k < (+c.getAttribute('span') || 1); k++) ws.push(parseWidth(c.dataset.w)); });
+      if (ws.length === nCols && ws.every(Boolean)) widths = ws;
+    }
+    if (!widths) {
+      for (const r of rows) {  // first row whose cells all say how wide they are
+        const ws = [];
+        let ok = true;
+        for (const c of Array.from(r.cells)) {
+          const span = +c.getAttribute('colspan') || 1, w = parseWidth(c.dataset.w);
+          if (!w) { ok = false; break; }
+          for (let k = 0; k < span; k++) ws.push(w.pct != null ? { pct: w.pct / span } : { px: w.px / span });
+        }
+        if (ok && ws.length === nCols) { widths = ws; break; }
+      }
+    }
+    table.querySelectorAll('colgroup, col').forEach((c) => c.remove());
+    table.querySelectorAll('[data-w]').forEach((c) => c.removeAttribute('data-w'));
+    if (!widths) return;
+    const vals = widths.map((w) => (w.pct != null ? w.pct : w.px));
+    const total = vals.reduce((a, b) => a + b, 0);
+    const cg = table.ownerDocument.createElement('colgroup');
+    vals.forEach((v) => { const c = table.ownerDocument.createElement('col'); c.setAttribute('style', `width:${(v / total * 100).toFixed(2)}%`); cg.appendChild(c); });
+    table.insertBefore(cg, table.firstChild);
+    table.setAttribute('style', 'table-layout:fixed;width:100%');
+  }
   const DROP = new Set(['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'IMG', 'SVG', 'VIDEO', 'AUDIO', 'META', 'LINK', 'TITLE', 'HEAD', 'NOSCRIPT', 'TEMPLATE', 'INPUT', 'BUTTON', 'TEXTAREA', 'SELECT', 'FORM', 'CANVAS']);
   const STYLES = ['text-align', 'font-weight', 'font-style', 'text-decoration', 'text-decoration-line', 'color', 'background-color', 'font-size', 'margin-left', 'padding-left'];
 
@@ -160,6 +207,11 @@
         }
         const extra = {};
         if (tag === 'TD' || tag === 'TH') ['colspan', 'rowspan'].forEach((a) => ch.hasAttribute(a) && (extra[a] = ch.getAttribute(a)));
+        if (tag === 'TD' || tag === 'TH' || tag === 'COL') {  // remembered for fixTableColumns
+          const w = ch.style.width || ch.getAttribute('width');
+          if (w) extra['data-w'] = w;
+          if (tag === 'COL' && ch.getAttribute('span')) extra.span = ch.getAttribute('span');
+        }
         if (tag === 'FONT') ['color', 'size'].forEach((a) => ch.hasAttribute(a) && (extra[a] = ch.getAttribute(a)));
         if (ch.getAttribute('align')) keep['text-align'] = ch.getAttribute('align');
         for (const a of Array.from(ch.attributes)) ch.removeAttribute(a.name);
@@ -168,6 +220,7 @@
         if (st) ch.setAttribute('style', st);
       }
     })(root);
+    root.querySelectorAll('table').forEach(fixTableColumns);
     return root.innerHTML;
   }
 
@@ -791,6 +844,18 @@
         <span class="sep"></span>
         <button data-cmd="table" title="Insert table">Table</button>
         <button data-cmd="removeFormat" title="Clear formatting">⌫ Format</button>
+        <div class="tbl-bar" id="tblBar" hidden>
+          <span class="tbl-label">Table:</span>
+          <button data-t="rowAbove" title="Insert row above">+ Row ↑</button>
+          <button data-t="rowBelow" title="Insert row below">+ Row ↓</button>
+          <button data-t="colLeft" title="Insert column left">+ Col ←</button>
+          <button data-t="colRight" title="Insert column right">+ Col →</button>
+          <span class="sep"></span>
+          <button data-t="delRow" title="Delete this row">− Row</button>
+          <button data-t="delCol" title="Delete this column">− Col</button>
+          <button data-t="equal" title="Make all columns the same width">Equal widths</button>
+          <button data-t="delTable" class="danger" title="Delete the whole table">Delete table</button>
+        </div>
       </div>
       <div class="rt-editor" id="rtEditor" contenteditable="true" spellcheck="true"
            data-placeholder="Type the title, description, notes… (you can also paste from Word)"></div>
@@ -865,8 +930,9 @@
     try { document.execCommand('styleWithCSS', false, false); } catch (_) { /* old browsers */ }
     const bar = $('#rtBar', ed);
     bar.addEventListener('mousedown', (e) => { if (e.target.closest('button')) e.preventDefault(); });
+    wireTableTools(rte, $('#tblBar', ed));
     bar.addEventListener('click', (e) => {
-      const b = e.target.closest('button'); if (!b) return;
+      const b = e.target.closest('button[data-cmd]'); if (!b) return;
       rte.focus();
       if (b.dataset.cmd === 'table') return insertTable();
       document.execCommand(b.dataset.cmd, false, null);
@@ -891,7 +957,8 @@
           const rows = Math.min(40, Math.max(1, +$('#tRows', back).value || 1));
           const cols = Math.min(12, Math.max(1, +$('#tCols', back).value || 1));
           const head = $('#tHead', back).checked;
-          let t = '<table><tbody>';
+          let t = '<table style="table-layout:fixed;width:100%"><colgroup>' +
+            `<col style="width:${(100 / cols).toFixed(2)}%">`.repeat(cols) + '</colgroup><tbody>';
           for (let r = 0; r < rows; r++) { t += '<tr>'; for (let c = 0; c < cols; c++) t += r === 0 && head ? '<th><br></th>' : '<td><br></td>'; t += '</tr>'; }
           t += '</tbody></table><p><br></p>';
           rte.focus();
@@ -959,6 +1026,153 @@
       <select data-p="align" title="Alignment">${['left', 'center', 'right'].map((v) => `<option value="${v}" ${s.align === v ? 'selected' : ''}>${v[0].toUpperCase() + v.slice(1)}</option>`).join('')}</select>
       <input type="color" data-p="color" value="${s.color}" title="Color">
     </div>`;
+  }
+
+  /* ------------------------------------------------------------------ table editing */
+  const cellSpan = (c) => +c.getAttribute('colspan') || 1;
+  const rowCols = (tr) => Array.from(tr.cells).reduce((s, c) => s + cellSpan(c), 0);
+  /** The cell of a row that covers visual column `idx`. */
+  function cellAtCol(tr, idx) {
+    let x = 0;
+    for (const c of Array.from(tr.cells)) { if (idx < x + cellSpan(c)) return c; x += cellSpan(c); }
+    return null;
+  }
+  /** Visual column index of a cell (its first column). */
+  function colOfCell(td) {
+    let x = 0;
+    for (const c of Array.from(td.parentElement.cells)) { if (c === td) return x; x += cellSpan(c); }
+    return x;
+  }
+  /** Make sure the table has a <colgroup> with % widths (measured from how it looks now). */
+  function ensureColgroup(table) {
+    const n = Math.max(...Array.from(table.rows).map(rowCols));
+    let cg = table.querySelector('colgroup');
+    if (cg && cg.children.length === n) return cg;
+    const ref = Array.from(table.rows).find((r) => r.cells.length === n) || table.rows[0];
+    const ws = [];
+    Array.from(ref.cells).forEach((c) => { const w = c.getBoundingClientRect().width / cellSpan(c); for (let k = 0; k < cellSpan(c); k++) ws.push(w || 1); });
+    while (ws.length < n) ws.push(ws[ws.length - 1] || 1);
+    cg?.remove();
+    cg = document.createElement('colgroup');
+    ws.forEach(() => cg.appendChild(document.createElement('col')));
+    table.insertBefore(cg, table.firstChild);
+    setColWidths(table, ws);
+    return cg;
+  }
+  function getColWidths(table) {
+    return Array.from(ensureColgroup(table).children).map((c) => parseFloat(c.style.width) || 1);
+  }
+  function setColWidths(table, ws) {
+    const total = ws.reduce((a, b) => a + b, 0) || 1;
+    Array.from(table.querySelector('colgroup').children).forEach((c, i) => (c.style.width = (ws[i] / total * 100).toFixed(2) + '%'));
+    table.style.tableLayout = 'fixed'; table.style.width = '100%';
+  }
+  function newCell(likeTh) { const c = document.createElement(likeTh ? 'th' : 'td'); c.innerHTML = '<br>'; return c; }
+  function placeCaret(el) {
+    const r = document.createRange(); r.selectNodeContents(el); r.collapse(true);
+    const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+  }
+
+  function wireTableTools(rte, bar) {
+    let cell = null;
+    const currentCell = () => {
+      const s = window.getSelection();
+      const n = s.rangeCount ? s.anchorNode : null;
+      const el = n && (n.nodeType === 1 ? n : n.parentElement);
+      const c = el?.closest?.('td, th');
+      return c && rte.contains(c) ? c : null;
+    };
+    const update = () => {
+      if (!rte.isConnected) return document.removeEventListener('selectionchange', update);
+      const c = currentCell();
+      if (c) cell = c;
+      if (document.activeElement === rte || bar.contains(document.activeElement)) bar.hidden = !c;
+    };
+    document.addEventListener('selectionchange', update);
+    bar.addEventListener('mousedown', (e) => e.preventDefault());  // keep the cursor in the table
+    bar.addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-t]');
+      if (!b || !cell || !rte.contains(cell)) return;
+      const table = cell.closest('table'), tr = cell.parentElement, col = colOfCell(cell);
+      const act = b.dataset.t;
+      if (act === 'rowAbove' || act === 'rowBelow') {
+        const nr = document.createElement('tr');
+        const asTh = act === 'rowAbove' && Array.from(tr.cells).every((c) => c.tagName === 'TH');
+        Array.from(tr.cells).forEach((c) => { const x = newCell(asTh); if (cellSpan(c) > 1) x.setAttribute('colspan', cellSpan(c)); nr.appendChild(x); });
+        tr.parentElement.insertBefore(nr, act === 'rowAbove' ? tr : tr.nextSibling);
+        placeCaret(nr.cells[Math.min(nr.cells.length - 1, Array.from(tr.cells).indexOf(cell))]);
+      } else if (act === 'colLeft' || act === 'colRight') {
+        const ws = getColWidths(table);
+        const at = act === 'colLeft' ? col : col + cellSpan(cell) - 1;
+        for (const r of Array.from(table.rows)) {
+          const c = cellAtCol(r, at); if (!c) continue;
+          const x = newCell(c.tagName === 'TH');
+          r.insertBefore(x, act === 'colLeft' ? c : c.nextSibling);
+        }
+        const half = ws[at] / 2; ws[at] = half; ws.splice(act === 'colLeft' ? at : at + 1, 0, half);
+        const cg = table.querySelector('colgroup'); cg.appendChild(document.createElement('col'));
+        setColWidths(table, ws);
+      } else if (act === 'delRow') {
+        const next = tr.nextElementSibling || tr.previousElementSibling;
+        tr.remove();
+        if (!table.rows.length) table.remove(); else if (next) placeCaret(next.cells[0]);
+      } else if (act === 'delCol') {
+        const ws = getColWidths(table);
+        for (const r of Array.from(table.rows)) {
+          const c = cellAtCol(r, col); if (!c) continue;
+          if (cellSpan(c) > 1) c.setAttribute('colspan', cellSpan(c) - 1); else c.remove();
+        }
+        ws.splice(col, 1);
+        table.querySelector('colgroup').lastElementChild?.remove();
+        if (!ws.length || !table.rows[0]?.cells.length) table.remove();
+        else {
+          setColWidths(table, ws);
+          if (tr.cells.length) placeCaret(cellAtCol(tr, Math.min(col, rowCols(tr) - 1)) || tr.cells[0]);
+        }
+      } else if (act === 'equal') {
+        setColWidths(table, getColWidths(table).map(() => 1));
+      } else if (act === 'delTable') {
+        table.remove(); bar.hidden = true; cell = null;
+      }
+      const now = currentCell();  // the cell may have been removed: follow the cursor
+      cell = now;
+      if (!now) bar.hidden = true;
+      rte.dispatchEvent(new Event('input'));
+    });
+
+    // drag a column border to resize it
+    const EDGE = 5;
+    let drag = null;
+    const edgeAt = (e) => {
+      const td = e.target.closest?.('td, th');
+      if (!td || !rte.contains(td)) return null;
+      const r = td.getBoundingClientRect();
+      const table = td.closest('table');
+      const last = colOfCell(td) + cellSpan(td) >= Math.max(...Array.from(table.rows).map(rowCols));
+      if (!last && r.right - e.clientX <= EDGE) return { table, col: colOfCell(td) + cellSpan(td) - 1 };
+      if (colOfCell(td) > 0 && e.clientX - r.left <= EDGE) return { table, col: colOfCell(td) - 1 };
+      return null;
+    };
+    rte.addEventListener('mousemove', (e) => { if (!drag) rte.style.cursor = edgeAt(e) ? 'col-resize' : ''; });
+    rte.addEventListener('mousedown', (e) => {
+      const hit = edgeAt(e); if (!hit) return;
+      e.preventDefault();
+      const ws = getColWidths(hit.table);
+      drag = { ...hit, ws, x: e.clientX, w: hit.table.getBoundingClientRect().width };
+      const move = (ev) => {
+        const d = (ev.clientX - drag.x) / drag.w * 100;
+        const a = drag.ws[drag.col], b = drag.ws[drag.col + 1];
+        const nd = Math.max(3 - a, Math.min(b - 3, d));  // keep both columns at least 3% wide
+        const ws2 = drag.ws.slice(); ws2[drag.col] = a + nd; ws2[drag.col + 1] = b - nd;
+        setColWidths(drag.table, ws2);
+      };
+      const up = () => {
+        document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up);
+        drag = null; rte.style.cursor = '';
+        rte.dispatchEvent(new Event('input'));
+      };
+      document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);
+    });
   }
 
   /** Small one-field rich text (bold / italic / underline) for titles and captions. */
