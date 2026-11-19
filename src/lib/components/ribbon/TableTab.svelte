@@ -20,7 +20,7 @@
 </Group>
 
 <Group label="Cells">
-	<button class="rb" onmousedown={keep} onclick={() => cmd((c) => c.mergeCells())} title="Select cells first">Merge</button>
+	<button class="rb" onmousedown={keep} onclick={() => cmd((c) => c.mergeCells())} title="Merge the selected cells (drag or Shift+click to select them)">Merge</button>
 	<button class="rb" onmousedown={keep} onclick={() => cmd((c) => c.splitCell())}>Split</button>
 	<button class="rb" onmousedown={keep} onclick={() => cmd((c) => c.toggleHeaderRow())}>Header row</button>
 	<br />

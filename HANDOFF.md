@@ -1,6 +1,6 @@
 # Pagesmith v2: where we are (handoff)
 
-Last updated: 2026-11-19. The full plan is in `C:\Users\jimcan\.claude\plans\ato-nya-ni-gamitan-unified-spark.md`.
+Last updated: 2026-11-19 (Phase 3 done). The full plan is in `C:\Users\jimcan\.claude\plans\ato-nya-ni-gamitan-unified-spark.md`.
 
 ## Goal
 Rewrite Pagesmith in **SvelteKit 3 + daisyUI 5 + TipTap 3**, as a Word-like editor:
@@ -22,8 +22,12 @@ Decisions already made with the user:
 - [x] **Phase 2: Shell.** TitleBar, Ribbon with tabs, ThumbRail, Canvas, StatusBar, Dialogs and Toasts.
   - It runs in the browser.
   - It loaded the user's existing document from IndexedDB (same DB name `pagesmith`).
-- [~] **Phase 3: Direct text editing.** The TipTap editor mounts when you click page text, and the Home tab enables. The Word table kept its column widths.
-  - **Still to test:** typing and ribbon formatting (bold/underline/size/color/lists), the Table tab (add/delete rows, merge, equal widths, column drag-resize), Insert → Table dialog, and Move overflow.
+- [x] **Phase 3: Direct text editing.** Tested in the browser (2026-11-19): typing, Home tab (style, size, color, B/I/U/S, align, lists), Insert → Table, the Table tab (add/delete rows and columns, merge, shading, equal widths, column drag-resize), Esc / clicking off the page to stop editing, and Move overflow. Fixed along the way:
+  - `state_unsafe_mutation` when the editor closed (TipTap's blur fired mid-render) → editor events now update state in a microtask,
+  - Move overflow lost the moved text (`structuredClone` on a `$state` proxy threw after the page was already trimmed),
+  - table widths were wrong for cells under a rowspan (`cellColumns()` in sanitize.ts, with a test),
+  - empty paragraphs had no height on the page (but did in the editor), so text jumped on click and blank lines vanished in print,
+  - clicking text now puts the cursor where you clicked; Esc and the grey area around pages stop editing; the Home tab no longer jumps when editing starts.
 - [ ] **Phase 4: Pictures on the canvas.** Code is written (`Pictures.svelte`) but not tested:
   - drag to another page or onto a thumbnail,
   - grid reorder,
@@ -50,7 +54,7 @@ Decisions already made with the user:
 ```
 cd pagesmith
 npm install
-npm run dev -- --port 8765      # or the "pagesmith" entry in ../.claude/launch.json
+npm run dev -- --port 8765      # or the "pagesmith" entry in .claude/launch.json
 npm run check                    # svelte-check: must be 0 errors
 npm test                         # vitest
 npm run build                    # static build → build/
@@ -64,6 +68,8 @@ npm run build                    # static build → build/
 - **daisyUI class names clash with ours:** `.status`, `.label`, `.tab`, `.menu`, `.card` and others. Use unique names (we hit `.status` → renamed `.statusbar`, and `.label` → renamed `.glabel`).
 - **TypeScript:** use `typescript@^6` (svelte-check does not support 7 yet).
 - **pdf.js 6:** destroy through the loading task (`task.destroy()`), not `pdf.destroy()`.
+- **TipTap events → Svelte state:** never write `$state` directly in TipTap callbacks (onTransaction/onFocus can fire during a render); defer with `queueMicrotask`.
+- **Cloning state:** `structuredClone` throws on `$state` proxies. Use `$state.snapshot()` in .svelte/.svelte.ts files, or a JSON copy in plain .ts.
 - **Tables:** they use TipTap's `colwidth` (px) on cells plus a matching `<colgroup>`. `sanitize(html, widthPx)` converts Word % widths into that format.
 
 ## Key files

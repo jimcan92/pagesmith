@@ -29,6 +29,14 @@ export const extensions = [
 /** The active editor and a counter that changes on every edit/selection (for toolbar state). */
 export const live = $state<{ editor: Editor | null; pageId: string | null; v: number }>({ editor: null, pageId: null, v: 0 });
 
+let bumpQueued = false;
+/** Tell the ribbon the editor changed (at most once per microtask). */
+function bump() {
+	if (bumpQueued) return;
+	bumpQueued = true;
+	queueMicrotask(() => { bumpQueued = false; live.v++; });
+}
+
 export function createEditor(el: HTMLElement, html: string, pageId: string, onChange: (html: string) => void) {
 	const editor = new Editor({
 		element: el,
@@ -36,8 +44,13 @@ export function createEditor(el: HTMLElement, html: string, pageId: string, onCh
 		content: html || '<p></p>',
 		editorProps: { attributes: { class: 'rt', spellcheck: 'true' } },
 		onUpdate: ({ editor }) => onChange(editor.getHTML()),
-		onTransaction: () => { live.v++; },
-		onFocus: () => { live.editor = editor; live.pageId = pageId; live.v++; }
+		// TipTap can fire these while Svelte is rendering (e.g. a blur when the editor's element is
+		// removed); writing $state then throws state_unsafe_mutation, so the writes are deferred.
+		onTransaction: () => bump(),
+		onFocus: () => queueMicrotask(() => {
+			if (editor.isDestroyed) return;
+			live.editor = editor; live.pageId = pageId; live.v++;
+		})
 	});
 	live.editor = editor;
 	live.pageId = pageId;

@@ -12,13 +12,21 @@
 		return {
 			block: e.isActive('heading', { level: 1 }) ? 'h1' : e.isActive('heading', { level: 2 }) ? 'h2' : e.isActive('heading', { level: 3 }) ? 'h3' : 'p',
 			size: (ts.fontSize as string) || '',
-			color: (ts.color as string) || '#000000',
+			color: toHex(ts.color as string),
 			bold: e.isActive('bold'), italic: e.isActive('italic'), underline: e.isActive('underline'), strike: e.isActive('strike'),
 			align: (['center', 'right', 'justify'] as const).find((a) => e.isActive({ textAlign: a })) || 'left',
 			ul: e.isActive('bulletList'), ol: e.isActive('orderedList')
 		};
 	});
 	const off = $derived(!st);
+	/** The color input needs #rrggbb; colors read back from saved text can be rgb(...). */
+	function toHex(c?: string) {
+		if (!c) return '#000000';
+		if (/^#[0-9a-f]{6}$/i.test(c)) return c.toLowerCase();
+		if (/^#[0-9a-f]{3}$/i.test(c)) return '#' + [...c.slice(1)].map((h) => h + h).join('').toLowerCase();
+		const m = c.match(/rgba?\(\s*(\d+)\D+(\d+)\D+(\d+)/i);
+		return m ? '#' + m.slice(1, 4).map((n) => (+n).toString(16).padStart(2, '0')).join('') : '#000000';
+	}
 	const SIZES = ['8pt', '9pt', '10pt', '11pt', '12pt', '14pt', '16pt', '18pt', '20pt', '24pt', '28pt', '36pt', '48pt'];
 	const keep = (e: MouseEvent) => e.preventDefault(); // don't take the focus away from the text
 
@@ -31,13 +39,6 @@
 		if (pg) doc.editingId = pg.id;
 	}
 </script>
-
-{#if off}
-	<div class="hint">
-		Click the text of a page to format it.
-		{#if doc.currentContent}<button class="btn btn-xs btn-primary ml-2" onclick={startEditing}>Edit text on page {doc.pageIndex(doc.currentId) + 1}</button>{/if}
-	</div>
-{/if}
 
 <Group label="Font">
 	<select class="rs" disabled={off} value={st?.block ?? 'p'} onchange={(e) => setBlock(e.currentTarget.value)} title="Paragraph style">
@@ -53,7 +54,7 @@
 	<button class="rb" class:on={st?.italic} disabled={off} onmousedown={keep} onclick={() => cmd((c) => c.toggleItalic())} title="Italic (Ctrl+I)"><i>I</i></button>
 	<button class="rb" class:on={st?.underline} disabled={off} onmousedown={keep} onclick={() => cmd((c) => c.toggleUnderline())} title="Underline (Ctrl+U)"><u>U</u></button>
 	<button class="rb" class:on={st?.strike} disabled={off} onmousedown={keep} onclick={() => cmd((c) => c.toggleStrike())} title="Strikethrough"><s>S</s></button>
-	<input type="color" disabled={off} value={st?.color.startsWith('#') ? st.color : '#000000'} title="Text color"
+	<input type="color" disabled={off} value={st?.color ?? '#000000'} title="Text color"
 		oninput={(e) => { const v = e.currentTarget.value; cmd((c) => c.setColor(v)); }} />
 	<button class="rb" disabled={off} onmousedown={keep} onclick={() => cmd((c) => c.unsetAllMarks().clearNodes())} title="Clear formatting">⌫</button>
 </Group>
@@ -73,6 +74,14 @@
 	<div class="text-xs opacity-70 max-w-40 leading-snug">Paste from Word keeps formatting and tables. Paste a screenshot onto a page to add it as a picture.</div>
 </Group>
 
+{#if off}
+	<div class="hint">
+		Click the text of a page to format it.
+		{#if doc.currentContent}<button class="btn btn-xs btn-primary ml-2" onclick={startEditing}>Edit text on page {doc.pageIndex(doc.currentId) + 1}</button>{/if}
+	</div>
+{/if}
+
 <style>
-	.hint { align-self: center; font-size: 12.5px; color: #6b625b; padding: 0 12px; max-width: 220px; line-height: 1.4; }
+	/* only uses the space left after the groups, so they don't move when it appears */
+	.hint { flex: 1 1 0; min-width: 0; overflow: hidden; align-self: center; font-size: 12.5px; color: #6b625b; padding: 0 12px; max-width: 240px; line-height: 1.4; }
 </style>

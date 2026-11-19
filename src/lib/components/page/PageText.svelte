@@ -13,15 +13,20 @@
 	let host = $state<HTMLDivElement>();
 	let editor: Editor | null = null;
 	let timer: ReturnType<typeof setTimeout> | null = null;
+	let clickAt: { x: number; y: number } | null = null; // where the text was clicked to start editing
 
 	const style = $derived(
 		(page.textAlign === 'center' ? 'text-align:center;' : '') + (page.textV === 'bottom' && page.attachments.length ? 'order:2;' : '')
 	);
 
+	/** The editor keeps an empty line after a final heading, list or table so you can type after it;
+	 *  that helper line is not part of the text (it would count toward "page too full"). */
+	const dropTrailer = (html: string) => html.replace(/(<\/(?:h\d|ul|ol|table|blockquote)>)<p><\/p>$/i, '$1');
+
 	function save(html: string) {
 		if (timer) clearTimeout(timer);
 		timer = setTimeout(() => {
-			const clean = sanitize(html, contentWidthPx(doc.project, page));
+			const clean = dropTrailer(sanitize(html, contentWidthPx(doc.project, page)));
 			if (clean !== page.html) { page.html = clean; doc.touch(); }
 		}, 150);
 	}
@@ -29,7 +34,14 @@
 	$effect(() => {
 		if (editing && host && !editor) {
 			editor = createEditor(host, page.html, page.id, save);
-			tick().then(() => editor?.commands.focus('end'));
+			const at = clickAt;
+			clickAt = null;
+			tick().then(() => {
+				if (!editor) return;
+				// put the cursor where the text was clicked (like Word), else at the end
+				const hit = at ? editor.view.posAtCoords({ left: at.x, top: at.y }) : null;
+				editor.commands.focus(hit ? hit.pos : 'end');
+			});
 		} else if (!editing && editor) {
 			stop();
 		}
@@ -38,7 +50,7 @@
 	function stop() {
 		if (!editor) return;
 		if (timer) { clearTimeout(timer); timer = null; }
-		const clean = sanitize(editor.getHTML(), contentWidthPx(doc.project, page));
+		const clean = dropTrailer(sanitize(editor.getHTML(), contentWidthPx(doc.project, page)));
 		const html = hasText(clean) ? clean : '';
 		if (html !== page.html) { page.html = html; doc.touch(); }
 		releaseEditor(editor);
@@ -49,6 +61,7 @@
 	function startEditing(e: MouseEvent) {
 		if (thumb) return;
 		e.stopPropagation();
+		clickAt = { x: e.clientX, y: e.clientY };
 		doc.select(page.id);
 		doc.selectedAtt = null;
 		doc.editingId = page.id;

@@ -116,7 +116,8 @@ export function fitPage(project: Project, pg: ContentPage): ContentPage[] {
 	const cont = () => {
 		const np = makeContentPage(pg.orientation, pg.bg);
 		np.textAlign = pg.textAlign;
-		np.labels = pg.labels ? structuredClone(pg.labels) : undefined;
+		// pg is usually reactive state (a proxy), which structuredClone can't copy
+		np.labels = pg.labels ? JSON.parse(JSON.stringify(pg.labels)) : undefined;
 		return np;
 	};
 	if (pg.attachments.length && pg.html && th > h * 0.55) {
@@ -129,9 +130,10 @@ export function fitPage(project: Project, pg: ContentPage): ContentPage[] {
 	if (th > h + 2) {
 		const parts = splitHtml(project, pg, h);
 		if (parts) {
-			pg.html = sanitize(parts[0], w);
+			// build the new page first, so a failure can never leave the moved text nowhere
 			const np = cont();
 			np.html = sanitize(parts[1], w);
+			pg.html = sanitize(parts[0], w);
 			added.unshift(np); // text continues before the pictures page
 		}
 	}

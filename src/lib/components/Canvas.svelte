@@ -40,6 +40,13 @@
 		e.preventDefault();
 		ui.zoom = Math.max(0.2, Math.min(2, +(ui.scale * (e.deltaY < 0 ? 1.1 : 0.9)).toFixed(2)));
 	}
+
+	// clicking the grey area around the pages ends text editing and deselects pictures
+	function onclick(e: MouseEvent) {
+		if (e.target !== scroller) return;
+		doc.editingId = null;
+		doc.selectedAtt = null;
+	}
 </script>
 
 <svelte:head>
@@ -51,7 +58,8 @@
 	</style>`}
 </svelte:head>
 
-<div class="canvas-scroll" bind:this={scroller} bind:clientWidth={width} {onwheel}>
+<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+<div class="canvas-scroll" bind:this={scroller} bind:clientWidth={width} {onwheel} {onclick}>
 	{#each doc.project.pages as page, i (page.id)}
 		<PageSlot {page} index={i} pnum={nums[page.id] ?? null} />
 	{/each}

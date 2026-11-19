@@ -24,6 +24,15 @@ describe('sanitize', () => {
 		const html = `<table><tr><td colwidth="100">a</td><td colwidth="200">b</td></tr></table>`;
 		expect(sanitize(html, 600)).toContain('colwidth="200"');
 	});
+	it('gives a cell under a rowspan the width of the column it is really in', () => {
+		// row 2's only cell sits in column 3: columns 1-2 are taken by the merged cell above
+		const html = `<table><tr><th colwidth="94">a</th><th colwidth="155">b</th><th colwidth="155">c</th></tr>`
+			+ `<tr><td colspan="2" rowspan="2" colwidth="94,155">m</td><td colwidth="155">x</td></tr>`
+			+ `<tr><td colwidth="94">y</td></tr></table>`;
+		const doc = new DOMParser().parseFromString(sanitize(html, 600), 'text/html');
+		expect(doc.querySelectorAll('tr')[2].cells[0].getAttribute('colwidth')).toBe('155');
+		expect(doc.querySelectorAll('col').length).toBe(3);
+	});
 	it('handles colspan in % colgroups', () => {
 		const html = `<table><colgroup><col style="width:25%"><col style="width:75%"></colgroup><tr><td colspan="2">x</td></tr></table>`;
 		expect(sanitize(html, 400)).toContain('colwidth="100,300"');

@@ -26,6 +26,24 @@ export function parseWidth(v: string | null | undefined): { px?: number; pct?: n
 }
 
 const span = (c: Element) => +(c.getAttribute('colspan') || 1) || 1;
+const rspan = (c: Element) => Math.max(1, +(c.getAttribute('rowspan') || 1) || 1);
+
+/** The first grid column of every cell, skipping columns taken by cells that span down from rows above. */
+export function cellColumns(rows: HTMLTableRowElement[]): Map<Element, number> {
+	const start = new Map<Element, number>();
+	const taken: number[][] = rows.map(() => []); // taken[r][c] = 1 when a rowspan from above covers it
+	rows.forEach((r, ri) => {
+		let col = 0;
+		for (const c of Array.from(r.cells)) {
+			while (taken[ri][col]) col++;
+			start.set(c, col);
+			for (let dr = 1; dr < rspan(c) && ri + dr < rows.length; dr++)
+				for (let k = 0; k < span(c); k++) taken[ri + dr][col + k] = 1;
+			col += span(c);
+		}
+	});
+	return start;
+}
 
 /**
  * Keep column widths: from Word/Google Docs (cell or <col> widths) or from the editor
@@ -34,18 +52,19 @@ const span = (c: Element) => +(c.getAttribute('colspan') || 1) || 1;
  */
 export function fixTableColumns(table: HTMLTableElement, widthPx = 0) {
 	const rows = Array.from(table.rows);
-	const nCols = Math.max(0, ...rows.map((r) => Array.from(r.cells).reduce((s, c) => s + span(c), 0)));
+	const startCol = cellColumns(rows);
+	const nCols = Math.max(0, ...Array.from(startCol, ([c, i]) => i + span(c)));
 	if (!nCols) return;
 	let widths: ({ px?: number; pct?: number } | null)[] | null = null;
 
-	// 1. the editor's own widths
-	for (const r of rows) {
-		const ws: ({ px: number } | null)[] = [];
-		for (const c of Array.from(r.cells)) {
+	// 1. the editor's own widths (any cell can tell the width of the grid columns it covers)
+	{
+		const ws: ({ px: number } | null)[] = Array(nCols).fill(null);
+		for (const [c, col] of startCol) {
 			const cw = (c.getAttribute('colwidth') || '').split(',').map((x) => parseInt(x, 10));
-			for (let k = 0; k < span(c); k++) ws.push(cw[k] > 0 ? { px: cw[k] } : null);
+			for (let k = 0; k < span(c); k++) if (cw[k] > 0 && !ws[col + k]) ws[col + k] = { px: cw[k] };
 		}
-		if (ws.length === nCols && ws.every(Boolean)) { widths = ws; break; }
+		if (ws.every(Boolean)) widths = ws;
 	}
 	// 2. <col> widths
 	if (!widths) {
@@ -81,14 +100,7 @@ export function fixTableColumns(table: HTMLTableElement, widthPx = 0) {
 	// px widths that already fit stay as they are; otherwise scale to the available width
 	const target = widthPx || (allPx ? total : 624);
 	const px = vals.map((v) => Math.max(20, Math.round((allPx && total <= target + 1 ? v : (v / total) * target))));
-	for (const r of rows) {
-		let col = 0;
-		for (const c of Array.from(r.cells)) {
-			const s = span(c);
-			c.setAttribute('colwidth', px.slice(col, col + s).join(','));
-			col += s;
-		}
-	}
+	for (const [c, col] of startCol) c.setAttribute('colwidth', px.slice(col, col + span(c)).join(','));
 	// a matching <colgroup> so the page (and print) shows the same columns as the editor
 	const d = table.ownerDocument;
 	const cg = d.createElement('colgroup');

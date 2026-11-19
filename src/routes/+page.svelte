@@ -33,6 +33,11 @@
 				return;
 			}
 		}
+		// Esc in the page text stops editing (like clicking off the text)
+		if (e.key === 'Escape' && !ui.dialog && (e.target as HTMLElement | null)?.closest?.('.ProseMirror')) {
+			doc.editingId = null;
+			return;
+		}
 		if (ui.dialog || inText(e.target)) return;
 		const sel = doc.selectedAtt;
 		const pg = sel ? doc.pageById(sel.pageId) : null;
