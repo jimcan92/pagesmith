@@ -42,6 +42,9 @@ Send it to your team. They load it with **Template → Import template…**, or 
      add a row above or below, add a column left or right, delete a row, delete a column,
      **Equal widths**, and **Delete table**.
      To change a column's width, drag its border.
+   - **Text on page**: choose **Top**, **Middle** or **Bottom**, and tick **Center horizontally** if you want.
+     **Center on page** does both at once, which is good for chapter or divider pages.
+     When a page has attachments, Top puts the text above the pictures and Bottom puts it below them.
    - **Attachments**: drop photos or PDFs, click to browse, or paste a screenshot (Ctrl+V).
      Pictures fit inside their boxes. ⟳ rotates a photo, ⇲ moves it to its own page.
    - **Layout**: Auto, a fixed grid (1, 2, 3, 4, 6, 9 per page), or **Manual (drag & resize)**.

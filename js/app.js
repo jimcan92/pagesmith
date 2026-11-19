@@ -399,7 +399,13 @@
         const rt = document.createElement('div');
         rt.className = 'rt';
         rt.innerHTML = pg.html;
+        if (pg.textAlign === 'center') rt.style.textAlign = 'center';
+        if (pg.textV === 'bottom') rt.style.order = '2';  // below the pictures
         safe.appendChild(rt);
+      }
+      // where the text sits on the page (a chapter page = middle + centered)
+      if (!pg.attachments.length || pg.textV === 'bottom') {
+        safe.style.justifyContent = { middle: 'center', bottom: 'flex-end' }[pg.textV] || 'flex-start';
       }
       if (pg.attachments.length) {
         const free = pg.layout === 'free';
@@ -859,7 +865,17 @@
       </div>
       <div class="rt-editor" id="rtEditor" contenteditable="true" spellcheck="true"
            data-placeholder="Type the title, description, notes… (you can also paste from Word)"></div>
-      <p class="hint">Text goes on top; attachments fill the rest of the page automatically.</p>
+      <div class="row" style="margin-top:8px">
+        <span class="field-label">Text on page</span>
+        <div class="seg sm" id="textV">
+          ${[['top', 'Top'], ['middle', 'Middle'], ['bottom', 'Bottom']].map(([v, l]) => `<button data-v="${v}" class="${(pg.textV || 'top') === v ? 'on' : ''}">${l}</button>`).join('')}
+        </div>
+        <label class="field-label"><input type="checkbox" id="textCenter" ${pg.textAlign === 'center' ? 'checked' : ''}> Center horizontally</label>
+        <button class="btn sm" id="chapterPreset" title="Middle of the page and centered — for chapter / divider pages">Center on page</button>
+      </div>
+      <p class="hint">${pg.attachments.length
+        ? 'With attachments: Top = text above the pictures, Bottom = text below them.'
+        : 'Middle + Center horizontally puts the text in the exact center of the page (good for chapter pages).'}</p>
 
       <h3 id="attHead">Attachments (${pg.attachments.length})</h3>
       <div class="dropzone" id="dropzone">Drop photos or PDF here, <u>click to browse</u>, or paste a screenshot (Ctrl+V)</div>
@@ -915,6 +931,18 @@
     // rich text
     const rte = $('#rtEditor', ed);
     rte.innerHTML = pg.html || '';
+    rte.style.textAlign = pg.textAlign === 'center' ? 'center' : '';
+    const setTextPos = (v, center) => {
+      if (v) pg.textV = v;
+      if (center != null) pg.textAlign = center ? 'center' : '';
+      $$('#textV button', ed).forEach((b) => b.classList.toggle('on', b.dataset.v === (pg.textV || 'top')));
+      $('#textCenter', ed).checked = pg.textAlign === 'center';
+      rte.style.textAlign = pg.textAlign === 'center' ? 'center' : '';
+      renderOne(pg.id); touch();
+    };
+    $$('#textV button', ed).forEach((b) => b.addEventListener('click', () => setTextPos(b.dataset.v)));
+    $('#textCenter', ed).addEventListener('change', (e) => setTextPos(null, e.target.checked));
+    $('#chapterPreset', ed).addEventListener('click', () => setTextPos('middle', true));
     let typingTimer = null;
     rte.addEventListener('input', () => {
       clearTimeout(typingTimer);
@@ -1620,6 +1648,8 @@
         bg: typeof pg.bg === 'string' && /^(default|none|bg_\w+|portrait|landscape)$/.test(pg.bg) ? pg.bg : 'default',
         html: sanitize(pg.html || ''), layout: LAYOUTS.some(([v]) => v === pg.layout) ? pg.layout : 'auto',
         fit: pg.fit === 'cover' ? 'cover' : 'contain', showCaptions: pg.showCaptions !== false,
+        textV: ['middle', 'bottom'].includes(pg.textV) ? pg.textV : 'top',
+        textAlign: pg.textAlign === 'center' ? 'center' : '',
         labels: cleanLabels(pg.labels),
         attachments: (pg.attachments || []).map((a) => {
           const out = { id: String(a.id || uid('att')), src: okSrc(a.src), title: sanitizeInline(a.title || ''), caption: sanitizeInline(a.caption || '') };
