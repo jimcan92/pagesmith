@@ -75,13 +75,11 @@
 </Group>
 
 {#if off}
-	<div class="hint">
-		Click the text of a page to format it.
-		{#if doc.currentContent}<button class="btn btn-xs btn-primary ml-2" onclick={startEditing}>Edit text on page {doc.pageIndex(doc.currentId) + 1}</button>{/if}
+	<div class="ribbon-tip">
+		<div>
+			Click the text of a page to format it.
+			{#if doc.currentContent}<button class="btn btn-xs btn-primary mt-1 whitespace-nowrap" onclick={startEditing}>Edit text on page {doc.pageIndex(doc.currentId) + 1}</button>{/if}
+		</div>
 	</div>
 {/if}
 
-<style>
-	/* only uses the space left after the groups, so they don't move when it appears */
-	.hint { flex: 1 1 0; min-width: 0; overflow: hidden; align-self: center; font-size: 12.5px; color: #6b625b; padding: 0 12px; max-width: 240px; line-height: 1.4; }
-</style>

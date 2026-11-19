@@ -178,3 +178,9 @@ body {
 	.page-slot .ps-page { position: relative !important; transform: none !important; }
 	* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* Help text at the end of a ribbon tab: it only takes the room the groups leave, and hides when
+   that room is too small (so it never makes the ribbon taller or pushes the groups around). */
+.ribbon-tip { flex: 1 1 0; min-width: 0; max-width: 240px; align-self: center; container-type: inline-size; padding: 0 10px; }
+.ribbon-tip > div { font-size: 12px; color: #6b625b; line-height: 1.4; }
+@container (max-width: 150px) { .ribbon-tip > div { display: none; } }

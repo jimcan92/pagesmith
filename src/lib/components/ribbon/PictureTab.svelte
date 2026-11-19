@@ -67,14 +67,16 @@
 		doc.touch();
 	}
 	function ownPage() {
-		if (!pg || !a) return;
-		const [moved] = pg.attachments.splice(i, 1);
+		// pg/i/a follow the selection, so keep the page: they go undefined once it's cleared
+		const from = pg;
+		if (!from || !a) return;
+		const np = makeContentPage(from.orientation, from.bg);
+		np.labels = from.labels ? structuredClone($state.snapshot(from.labels)) : undefined;
+		const [moved] = from.attachments.splice(i, 1);
 		delete moved.box;
-		const np = makeContentPage(pg.orientation, pg.bg);
 		np.attachments.push(moved);
-		np.labels = pg.labels ? structuredClone($state.snapshot(pg.labels)) : undefined;
 		doc.selectedAtt = null;
-		doc.insertPages([np], pg.id);
+		doc.insertPages([np], from.id);
 	}
 	function remove() {
 		if (!pg) return;
@@ -94,9 +96,13 @@
 				<option value="contain">Whole picture</option><option value="cover">Fill box (crop)</option>
 			</select>
 		</div>
-		<button class="rb big" onclick={() => order(-1)} disabled={i === 0} title={pg.layout === 'free' ? 'Send backward' : 'Move earlier'}><span class="ico">◀</span>{pg.layout === 'free' ? 'Backward' : 'Earlier'}</button>
-		<button class="rb big" onclick={() => order(1)} disabled={i === pg.attachments.length - 1} title={pg.layout === 'free' ? 'Bring forward' : 'Move later'}><span class="ico">▶</span>{pg.layout === 'free' ? 'Forward' : 'Later'}</button>
-		<button class="rb big" onclick={rotate} title="Rotate 90°"><span class="ico">⟳</span>Rotate</button>
+		<div class="flex flex-col gap-1">
+			<div class="flex gap-1">
+				<button class="rb" onclick={() => order(-1)} disabled={i === 0} title={pg.layout === 'free' ? 'Send backward' : 'Move earlier'} aria-label={pg.layout === 'free' ? 'Send backward' : 'Move earlier'}>◀</button>
+				<button class="rb" onclick={() => order(1)} disabled={i === pg.attachments.length - 1} title={pg.layout === 'free' ? 'Bring forward' : 'Move later'} aria-label={pg.layout === 'free' ? 'Bring forward' : 'Move later'}>▶</button>
+			</div>
+			<button class="rb" onclick={rotate} title="Rotate 90°">⟳ Rotate</button>
+		</div>
 	</Group>
 
 	<Group label="Titles & captions (this page)">
@@ -119,6 +125,9 @@
 				</div>
 			{/each}
 		</div>
+	</Group>
+
+	<Group label="Captions">
 		<div class="flex flex-col gap-1">
 			<label class="rb"><input type="checkbox" class="checkbox checkbox-xs" checked={pg.showCaptions} onchange={(e) => { pg.showCaptions = e.currentTarget.checked; doc.touch(); }} /> Show captions</label>
 			<button class="rb" onclick={labelsToAll}>Use on all pages</button>
@@ -126,12 +135,11 @@
 	</Group>
 
 	<Group label="Picture">
-		<button class="rb big" onclick={ownPage} title="Move this picture to a new page after this one"><span class="ico">⇲</span>Own page</button>
-		<button class="rb big text-error" onclick={remove} title="Remove this picture"><span class="ico">✕</span>Delete</button>
+		<div class="flex flex-col gap-1">
+			<button class="rb" onclick={ownPage} title="Move this picture to a new page after this one">⇲ Own page</button>
+			<button class="rb text-error" onclick={remove} title="Remove this picture (Delete key)">✕ Delete</button>
+		</div>
 	</Group>
-	<div class="tip">Type the title and caption right on the page. Drag the picture to another page (or a thumbnail) to move it.</div>
+	<div class="ribbon-tip"><div>Type the title and caption right on the page. Drag the picture to another page (or a thumbnail) to move it.</div></div>
 {/if}
 
-<style>
-	.tip { align-self: center; font-size: 12px; color: #6b625b; max-width: 200px; padding: 0 10px; line-height: 1.4; }
-</style>

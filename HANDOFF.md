@@ -1,6 +1,6 @@
 # Pagesmith v2: where we are (handoff)
 
-Last updated: 2026-11-19 (Phase 3 done). The full plan is in `C:\Users\jimcan\.claude\plans\ato-nya-ni-gamitan-unified-spark.md`.
+Last updated: 2026-11-19 (Phases 3 and 4 done). The full plan is in `C:\Users\jimcan\.claude\plans\ato-nya-ni-gamitan-unified-spark.md`.
 
 ## Goal
 Rewrite Pagesmith in **SvelteKit 3 + daisyUI 5 + TipTap 3**, as a Word-like editor:
@@ -28,13 +28,11 @@ Decisions already made with the user:
   - table widths were wrong for cells under a rowspan (`cellColumns()` in sanitize.ts, with a test),
   - empty paragraphs had no height on the page (but did in the editor), so text jumped on click and blank lines vanished in print,
   - clicking text now puts the cursor where you clicked; Esc and the grey area around pages stop editing; the Home tab no longer jumps when editing starts.
-- [ ] **Phase 4: Pictures on the canvas.** Code is written (`Pictures.svelte`) but not tested:
-  - drag to another page or onto a thumbnail,
-  - grid reorder,
-  - manual handles and arrow-key nudge,
-  - inline title/caption editing,
-  - the Picture tab,
-  - dropping files on a page, pasting a screenshot.
+- [x] **Phase 4: Pictures on the canvas.** Tested in the browser (2026-11-19): dropping files on a page, pasting a screenshot (onto the page, and while typing in its text), grid reorder by drag, drag to another page on the canvas or onto a thumbnail (grid and manual), manual move / corner resize / arrow nudge (Shift = bigger), title & caption typed on the page (Ctrl+B/I/U, Ctrl+Z stays inside), and the Picture tab (layout, fit, earlier/later, rotate, own page, delete, caption styles, Show captions, Use on all pages). Not tested: Insert → Pictures (it opens a file picker, then uses the same code as dropping). Fixed along the way:
+  - "Own page" deleted the picture (the `$derived` page went undefined once the selection was cleared),
+  - after picking a layout in the ribbon, the arrow keys kept changing the dropdown instead of nudging the picture (pointerdown is preventDefault-ed, so focus never left it),
+  - the page jumped under the pointer when the ribbon changed height (now: all tabs fit in 96px at 1024px wide, and the canvas scrolls by any height change),
+  - ribbon help text now only takes leftover space and hides when there's too little (`.ribbon-tip`).
 - [ ] **Phase 5: Layout, Template and Insert.** Code is written, not tested:
   - LayoutTab, TemplateTab, TemplateDialog,
   - Special pages, Cover, Photo pages, PDF,
@@ -69,6 +67,8 @@ npm run build                    # static build → build/
 - **TypeScript:** use `typescript@^6` (svelte-check does not support 7 yet).
 - **pdf.js 6:** destroy through the loading task (`task.destroy()`), not `pdf.destroy()`.
 - **TipTap events → Svelte state:** never write `$state` directly in TipTap callbacks (onTransaction/onFocus can fire during a render); defer with `queueMicrotask`.
+- **`$derived` from the selection:** in ribbon handlers, copy `pg` etc. into a local before changing `doc.selectedAtt`; they go `undefined` right after.
+- **Ribbon groups:** a `<br>` does nothing inside the flex groups; use explicit `flex-col` rows. Keep every tab ≤ 2 rows at 1024px.
 - **Cloning state:** `structuredClone` throws on `$state` proxies. Use `$state.snapshot()` in .svelte/.svelte.ts files, or a JSON copy in plain .ts.
 - **Tables:** they use TipTap's `colwidth` (px) on cells plus a matching `<colgroup>`. `sanitize(html, widthPx)` converts Word % widths into that format.
 

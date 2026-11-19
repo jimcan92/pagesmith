@@ -38,6 +38,10 @@
 	}
 
 	function selectPic(i: number) {
+		// pointerdown is preventDefault-ed (no text selection while dragging), so focus would stay
+		// in e.g. the ribbon's layout dropdown and the arrow keys would change it instead of nudging
+		const f = document.activeElement as HTMLElement | null;
+		if (f && f !== document.body && !f.closest('figure')) f.blur();
 		doc.select(page.id);
 		doc.editingId = null;
 		doc.selectedAtt = { pageId: page.id, i };

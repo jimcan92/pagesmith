@@ -55,13 +55,18 @@
 </Group>
 
 <Group label="Text on page">
-	{#each [['top', 'Top'], ['middle', 'Middle'], ['bottom', 'Bottom']] as [v, l] (v)}
-		<button class="rb" class:on={(pg?.textV || 'top') === v} disabled={!pg} onclick={() => textPos(v as 'top')}>{l}</button>
-	{/each}
-	<br />
-	<label class="rb"><input type="checkbox" class="checkbox checkbox-xs" disabled={!pg} checked={pg?.textAlign === 'center'}
-		onchange={(e) => { if (pg) { pg.textAlign = e.currentTarget.checked ? 'center' : ''; doc.touch(); } }} /> Center horizontally</label>
-	<button class="rb" disabled={!pg} onclick={() => textPos('middle', true)} title="For chapter / divider pages">Center on page</button>
+	<div class="flex flex-col gap-1">
+		<div class="flex gap-1">
+			{#each [['top', 'Top'], ['middle', 'Middle'], ['bottom', 'Bottom']] as [v, l] (v)}
+				<button class="rb" class:on={(pg?.textV || 'top') === v} disabled={!pg} onclick={() => textPos(v as 'top')}>{l}</button>
+			{/each}
+		</div>
+		<div class="flex gap-1">
+			<label class="rb"><input type="checkbox" class="checkbox checkbox-xs" disabled={!pg} checked={pg?.textAlign === 'center'}
+				onchange={(e) => { if (pg) { pg.textAlign = e.currentTarget.checked ? 'center' : ''; doc.touch(); } }} /> Center horizontally</label>
+			<button class="rb" disabled={!pg} onclick={() => textPos('middle', true)} title="For chapter / divider pages">Center on page</button>
+		</div>
+	</div>
 </Group>
 
 <Group label="Fit">

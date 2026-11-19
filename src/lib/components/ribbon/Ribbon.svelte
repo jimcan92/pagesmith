@@ -24,6 +24,21 @@
 		lastTable = inTable;
 	});
 
+	// When the ribbon changes height (e.g. the Picture tab comes up as you press on a picture),
+	// scroll the canvas by the same amount so the page under the pointer doesn't jump.
+	let ribbonH = 0;
+	function keepCanvasStill(el: HTMLElement) {
+		ribbonH = el.offsetHeight;
+		const ro = new ResizeObserver(() => {
+			const h = el.offsetHeight, d = h - ribbonH;
+			ribbonH = h;
+			const c = document.querySelector('.canvas-scroll') as HTMLElement | null;
+			if (d && c) c.scrollTop += d;
+		});
+		ro.observe(el);
+		return { destroy: () => ro.disconnect() };
+	}
+
 	const tabs = $derived<[Tab, string, boolean][]>([
 		['home', 'Home', false],
 		['insert', 'Insert', false],
@@ -34,7 +49,7 @@
 	]);
 </script>
 
-<div class="ribbon no-print">
+<div class="ribbon no-print" use:keepCanvasStill>
 	<div class="tabs-row" role="tablist">
 		{#each tabs as [k, label, ctx] (k)}
 			<button role="tab" class="tab-btn" class:active={ui.tab === k} class:ctx onclick={() => (ui.tab = k)}>{label}</button>
@@ -61,5 +76,5 @@
 	.tab-btn.active { background: #fff; border-color: var(--color-base-300); color: var(--color-primary); font-weight: 600; }
 	.tab-btn.ctx { color: #2f7de1; }
 	.tab-btn.ctx.active { color: #2f7de1; box-shadow: inset 0 3px 0 #2f7de1; }
-	.panel { display: flex; align-items: stretch; padding: 6px 4px 4px; min-height: 92px; overflow-x: auto; }
+	.panel { display: flex; align-items: stretch; padding: 6px 4px 4px; min-height: 96px; /* every tab the same height, so the page doesn't move when tabs change */ overflow-x: auto; }
 </style>
