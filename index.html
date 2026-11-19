@@ -40,6 +40,7 @@
         <button class="btn sm" data-add="cover" title="The document's cover (one per document)">Cover</button>
         <button class="btn sm" data-add="photos" title="Add many photos at once — pages are created automatically">Photos…</button>
         <button class="btn sm" data-add="pdf" title="Each PDF page becomes one page (landscape pages stay landscape)">PDF…</button>
+        <button class="btn sm" data-add="word" title="Bring in an existing Word document (.docx): text, tables and pictures become editable pages">Word…</button>
       </div>
       <ol id="pageList" class="page-list"></ol>
     </section>
@@ -71,6 +72,7 @@
 <input type="file" id="filePdf" accept="application/pdf" multiple hidden>
 <input type="file" id="fileAttach" accept="image/*,application/pdf" multiple hidden>
 <input type="file" id="fileImage" accept="image/*" hidden>
+<input type="file" id="fileDocx" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden>
 
 <div id="modalRoot"></div>
 <div id="toasts" class="toasts" aria-live="polite"></div>
@@ -78,7 +80,10 @@
 <!-- PDF import (pdf.js). Needs internet. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+<!-- Word import (JSZip). Needs internet. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="js/defaults.js"></script>
+<script src="js/docx-import.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

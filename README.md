@@ -33,6 +33,13 @@ Send it to your team. They load it with **Template → Import template…**, or 
    - **Cover**: adds the cover as page 1 (only one).
    - **Photos…**: pick many photos at once and choose how many go on each page. The pages are created for you.
    - **PDF…**: each PDF page becomes its own page. Landscape PDF pages stay landscape.
+   - **Word…**: brings in an existing Word document (.docx), and everything stays editable.
+     Pages follow the Word pages, including Word's own page breaks and its portrait or landscape sections.
+     Text keeps its formatting, and tables keep their column widths, merged cells and header rows.
+     Pictures become attachments.
+     Backgrounds, headers and footers from Word are left out, because your template provides them.
+     You can leave out the Word cover.
+     Pages that are too full are split automatically, and long tables continue on the next page.
 2. Click a page to edit it on the left:
    - **Portrait / Landscape** and **Background**. You can change the background of any page, even in the
      middle of the document. **Use for following pages** applies it to all the pages after this one.
@@ -71,6 +78,9 @@ Each file holds that area's cover plus the portrait and landscape backgrounds.
 ---
 
 ## Notes
-- PDF import uses pdf.js from cdnjs, so it **needs internet**. Everything else works offline.
+- PDF import (pdf.js) and Word import (JSZip) load from cdnjs, so they **need internet**.
+  Everything else works offline.
+- Word import works out the page breaks the way Word does. When the Word file has no saved page breaks,
+  they are estimated, so check the imported pages and fix any that need it.
 - Photos are resized to at most 2400 px on the long side, which is enough for printing and keeps files small.
 - Files: `index.html`, `css/app.css`, `js/app.js` (all logic), `js/defaults.js` (blank template, paper sizes).

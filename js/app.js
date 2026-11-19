@@ -691,7 +691,7 @@
   /* ------------------------------------------------------------------ page list */
   function pageLabel(pg) {
     if (pg.type === 'cover') return 'Cover';
-    const text = (pg.html || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+    const text = plainText((pg.html || '').replace(/<\/(p|h\d|li|td|th|div)>/gi, ' ')).replace(/\s+/g, ' ');
     const n = pg.attachments.length;
     const parts = [];
     if (text) parts.push(text.slice(0, 60));
@@ -1422,6 +1422,186 @@
     }
     if (kind === 'photos') return pickFiles('#filePhotos', openPhotosDialog);
     if (kind === 'pdf') return pickFiles('#filePdf', async (files) => { let after = currentId; for (const f of files) { await addPdfPages(f, after); after = currentId; } });
+    if (kind === 'word') return pickFiles('#fileDocx', ([f]) => importDocx(f));
+  }
+
+  /* ------------------------------------------------------------------ Word (.docx) import */
+  async function importDocx(file) {
+    if (!window.PagesmithDocx) return toast('Word import is not available.');
+    const t = toast(`Reading ${file.name}…`, 0);
+    let doc;
+    try {
+      doc = await PagesmithDocx.parse(await file.arrayBuffer(), (p) => { t.textContent = `Reading ${file.name}… ${Math.round(p * 100)}%`; });
+    } catch (e) {
+      console.error(e); t.remove();
+      return toast(`Could not read ${file.name}: ${e.message}`, 6000);
+    }
+    t.remove();
+    if (!doc.pages.length) return toast('No content found in that document.');
+    const land = doc.pages.filter((p) => p.landscape).length;
+    const pics = doc.pages.reduce((a, p) => a + p.pics.length, 0);
+    const looksLikeCover = doc.pages[0].zeroMargins || (!doc.pages[0].html.replace(/<[^>]+>/g, '').trim() && doc.pages[0].pics.length > 0);
+    modal('Import Word document', `
+      <p style="margin-top:0"><b>${esc(file.name)}</b></p>
+      <ul class="steps" style="margin-bottom:10px">
+        <li>${doc.pages.length} page(s) — ${doc.pages.length - land} portrait, ${land} landscape</li>
+        <li>${pics} picture(s) → attachments</li>
+        ${doc.skippedBackgrounds ? `<li class="muted">${doc.skippedBackgrounds} background / logo picture(s) left out (your template provides those)</li>` : ''}
+        ${doc.skippedUnsupported ? `<li class="muted">${doc.skippedUnsupported} picture(s) in an unsupported format (EMF/WMF) left out</li>` : ''}
+      </ul>
+      <label class="row"><input type="checkbox" id="dxSkip" ${looksLikeCover ? 'checked' : ''}> The first page is a cover — leave it out (use the template cover)</label>
+      <label class="row"><input type="checkbox" id="dxSplit" checked> Split pages that are too full onto the next page (long tables continue)</label>
+      <div class="row"><span class="field-label">Pictures</span>
+        <select id="dxLayout"><option value="auto">Auto layout</option><option value="free">Manual (drag & resize afterwards)</option></select></div>
+      <p class="hint">Pages are added after the selected page. Headers and footers from Word are not imported — your template is used.</p>`,
+      [['Cancel'], ['Import', 'primary', async (back) => {
+        const skip = $('#dxSkip', back).checked, split = $('#dxSplit', back).checked, layout = $('#dxLayout', back).value;
+        setTimeout(() => buildDocxPages(doc, file, { skip, split, layout }), 0);
+      }]]);
+  }
+
+  async function buildDocxPages(doc, file, { skip, split, layout }) {
+    // skip the cover: the first page, plus any more pages of a full-bleed (zero-margin) cover section
+    let from = 0;
+    if (skip) { from = 1; while (from < doc.pages.length && doc.pages[0].zeroMargins && doc.pages[from].zeroMargins) from++; }
+    const src = doc.pages.slice(from);
+    const t = toast('Importing…', 0);
+    const cache = new Map();  // same picture used twice → stored once
+    const created = [];
+    let n = 0;
+    const totalPics = src.reduce((a, p) => a + p.pics.length, 0);
+    for (const p of src) {
+      const pg = makePage('content', p.landscape ? 'landscape' : 'portrait');
+      pg.html = sanitize(p.html);
+      pg.layout = p.pics.length ? layout : 'auto';
+      pg.showCaptions = true;
+      for (const img of p.pics) {
+        n++;
+        t.textContent = `Importing pictures ${n} of ${totalPics}…`;
+        try {
+          let info = cache.get(img.path);
+          if (!info) { info = await importImageFile(await doc.loadImage(img)); cache.set(img.path, info); }
+          const a = { id: uid('att'), src: info.id, title: '', caption: '', ar: info.w / info.h };
+          pg.attachments.push(a);
+        } catch (e) { console.warn('picture skipped', img.path, e); }
+      }
+      created.push(pg);
+    }
+    if (!created.length) { t.remove(); return toast('Nothing to import.'); }
+    t.textContent = 'Laying out pages…';
+    insertPages(created);
+    if (split) {
+      await new Promise((r) => requestAnimationFrame(() => r()));
+      let added = 0;
+      for (const pg of created) added += fitPageChain(pg.id);
+      renderPreview();
+      if (added) toast(`${added} extra page(s) made for content that did not fit`, 5000);
+    }
+    if (layout === 'free') {
+      // start manual pages from their automatic arrangement
+      for (const pg of created) { if (pg.attachments.length) { pg.layout = 'auto'; renderOne(pg.id); boxesFromCurrentLayout(pg); pg.layout = 'free'; } }
+      renderPreview();
+    }
+    touch();
+    t.remove();
+    toast(`Imported ${created.length} page(s) from ${file.name}`, 4000);
+  }
+
+  /* ------------------------------------------------------------------ fit pages: move what doesn't fit to a new page */
+  function measure(id) {
+    const slot = $(`#previewPages .slot[data-id="${id}"]`);
+    const safe = slot?.querySelector('.safe');
+    if (!safe) return null;
+    const rt = safe.querySelector('.rt');
+    return { over: safe.scrollHeight > safe.clientHeight + 2, rtH: rt ? rt.offsetHeight : 0, safeH: safe.clientHeight };
+  }
+
+  function addPageAfter(id, pg) {
+    const i = pageIndex(id);
+    project.pages.splice(i + 1, 0, pg);
+    const old = $(`#previewPages .slot[data-id="${id}"]`);
+    const slot = makeSlot(pg, i + 1, pageNumbers());
+    if (old) old.after(slot); else renderPreview();
+  }
+
+  /** Make one page fit; anything that does not fit goes to new pages after it. Returns pages added. */
+  function fitPageChain(id) {
+    let added = 0, guard = 0;
+    while (id && guard++ < 60) {
+      const next = fitPage(id);
+      if (!next) break;
+      added++;
+      id = next;
+    }
+    return added;
+  }
+
+  function fitPage(id) {
+    const pg = pageById(id);
+    if (!pg || pg.type !== 'content') return null;
+    renderOne(id);
+    let m = measure(id);
+    if (!m) return null;
+    // text and pictures together don't fit → pictures get their own page
+    if (pg.attachments.length && pg.html && (m.over || m.rtH > m.safeH * 0.55)) {
+      const np = makePage('content', pg.orientation, pg.bg);
+      np.layout = pg.layout; np.labels = clone(labelStyle(pg));
+      np.attachments = pg.attachments; pg.attachments = [];
+      np.attachments.forEach((a) => delete a.box);
+      addPageAfter(id, np);
+      renderOne(id);
+      m = measure(id);
+      if (!m.over) return np.id;
+      // the text still doesn't fit: split it, its overflow goes between the text and the pictures
+      const cont = splitText(pg, id);
+      if (cont) { addPageAfter(id, cont); return cont.id; }
+      return np.id;
+    }
+    if (!m.over) return null;
+    const cont = splitText(pg, id);
+    if (cont) { addPageAfter(id, cont); return cont.id; }
+    return null;
+  }
+
+  /** Move trailing blocks (or trailing table rows) of the page's text until it fits. Returns the new page or null. */
+  function splitText(pg, id) {
+    const holder = document.createElement('div');
+    holder.innerHTML = pg.html;
+    const out = document.createElement('div');
+    let contTable = null, moved = false, guard = 0;
+    const isBlank = (n) => n.nodeType === 3 ? !n.textContent.trim() : false;
+    while (guard++ < 400) {
+      [...holder.childNodes].filter(isBlank).forEach((n) => n.remove());
+      const last = holder.lastElementChild;
+      if (!last) break;
+      const rows = last.tagName === 'TABLE' ? Array.from(last.tBodies).flatMap((b) => Array.from(b.rows)) : [];
+      if (last.tagName === 'TABLE' && rows.length > 1) {
+        if (!contTable) {
+          contTable = last.cloneNode(false);
+          const cg = last.querySelector('colgroup'); if (cg) contTable.appendChild(cg.cloneNode(true));
+          if (last.tHead) contTable.appendChild(last.tHead.cloneNode(true));  // repeat the header row
+          contTable.appendChild(document.createElement('tbody'));
+          out.insertBefore(contTable, out.firstChild);
+        }
+        const row = rows[rows.length - 1];
+        contTable.tBodies[0].insertBefore(row, contTable.tBodies[0].firstChild);
+      } else {
+        if (holder.children.length === 1 && !moved) break;  // a single block that is too big: leave it
+        contTable = null;
+        out.insertBefore(last, out.firstChild);
+      }
+      moved = true;
+      pg.html = holder.innerHTML;
+      renderOne(id);
+      const m = measure(id);
+      if (!m || !m.over) break;
+      if (!holder.children.length) break;
+    }
+    if (!moved || !out.innerHTML.trim()) return null;
+    const np = makePage('content', pg.orientation, pg.bg);
+    np.html = sanitize(out.innerHTML);
+    np.textAlign = pg.textAlign;
+    return np;
   }
 
   /* ------------------------------------------------------------------ modal / toast */
