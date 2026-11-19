@@ -15,7 +15,7 @@ Decisions already made with the user:
 
 ## ⚠ Important
 - **Do NOT push yet.** The live site (jimcan92.github.io/pagesmith) still serves the OLD version from `main` (root `index.html`). The old files were moved to `old/` (not committed yet). Pushing now would break the live site. Deploy only at Phase 7, with GitHub Actions.
-- Nothing from v2 is committed yet. Everything is in the working tree.
+- The v2 work is committed and pushed to the **`v2` branch** (github.com/jimcan92/pagesmith/tree/v2). `main` = the old, live version. Keep working on `v2`. At Phase 7, merge to `main` and switch Pages to Actions.
 
 ## Status by phase
 - [x] **Phase 1: Foundations.** Scaffold, model, storage, io modules, and 14 unit tests (`npm test` passes; this includes importing the real Area IV docx).
