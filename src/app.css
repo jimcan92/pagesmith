@@ -26,6 +26,12 @@
 	--radius-selector: 0.375rem;
 	--radius-field: 0.375rem;
 	--radius-box: 0.5rem;
+	/* daisyUI 5 draws field/radio/checkbox borders with --border: without it they are invisible */
+	--size-selector: 0.25rem;
+	--size-field: 0.25rem;
+	--border: 1px;
+	--depth: 0;
+	--noise: 0;
 }
 
 html,

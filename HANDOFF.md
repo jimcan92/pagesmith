@@ -1,6 +1,6 @@
 # Pagesmith v2: where we are (handoff)
 
-Last updated: 2026-11-19 (Phases 3 and 4 done). The full plan is in `C:\Users\jimcan\.claude\plans\ato-nya-ni-gamitan-unified-spark.md`.
+Last updated: 2026-11-19 (Phases 3–5 done). The full plan is in `C:\Users\jimcan\.claude\plans\ato-nya-ni-gamitan-unified-spark.md`.
 
 ## Goal
 Rewrite Pagesmith in **SvelteKit 3 + daisyUI 5 + TipTap 3**, as a Word-like editor:
@@ -33,10 +33,10 @@ Decisions already made with the user:
   - after picking a layout in the ribbon, the arrow keys kept changing the dropdown instead of nudging the picture (pointerdown is preventDefault-ed, so focus never left it),
   - the page jumped under the pointer when the ribbon changed height (now: all tabs fit in 96px at 1024px wide, and the canvas scrolls by any height change),
   - ribbon help text now only takes leftover space and hides when there's too little (`.ribbon-tip`).
-- [ ] **Phase 5: Layout, Template and Insert.** Code is written, not tested:
-  - LayoutTab, TemplateTab, TemplateDialog,
-  - Special pages, Cover, Photo pages, PDF,
-  - undo/redo.
+- [x] **Phase 5: Layout, Template and Insert.** Tested in the browser (2026-11-19): File → New (all template choices), the Template dialog (cover, portrait/landscape/special backgrounds, margins, Apply adds the cover page), Template tab Export → Import round trip and Set default (survives a reload), the Layout tab (orientation, background, use for following pages, text top/middle/bottom, center on page, paper size, page numbers), Insert → Special / Cover / Photo pages / PDF, and undo/redo. Fixed along the way:
+  - Undo (button) while a page's text was open did nothing: the editor wrote its text back over the restored document; undo/redo now close the editor first (`flushSync`), so the typing is its own step,
+  - text fields, radios and checkboxes had no border: the daisyUI theme was missing `--border` (and the size/depth variables),
+  - landscape pages were labelled "Landscape · Landscape".
 - [ ] **Phase 6: Files.** Code is written (`io/docxExport.ts`, `state/files.ts`), NOT tested:
   - Save .docx: each page becomes a Word section, with the template background in the header and text through `docx/html` `htmlToContent`; data is embedded in `customXml` with picture SHA-256 matching,
   - Open .docx: a Pagesmith-made file restores exactly; if Word changed it, the user chooses Word's or Pagesmith's version,
@@ -69,6 +69,8 @@ npm run build                    # static build → build/
 - **TipTap events → Svelte state:** never write `$state` directly in TipTap callbacks (onTransaction/onFocus can fire during a render); defer with `queueMicrotask`.
 - **`$derived` from the selection:** in ribbon handlers, copy `pg` etc. into a local before changing `doc.selectedAtt`; they go `undefined` right after.
 - **Ribbon groups:** a `<br>` does nothing inside the flex groups; use explicit `flex-col` rows. Keep every tab ≤ 2 rows at 1024px.
+- **daisyUI theme:** a custom `@plugin 'daisyui/theme'` must set `--border`, `--size-field`, `--size-selector`, `--depth`, `--noise`, or fields render without borders.
+- **Testing file pickers in the browser pane:** override `HTMLInputElement.prototype.click` for `type=file` to set `files` from a `DataTransfer` and fire `onchange`; override `HTMLAnchorElement.prototype.click` to capture downloads. Real files can be made with a canvas (images) or a hand-written PDF string.
 - **Cloning state:** `structuredClone` throws on `$state` proxies. Use `$state.snapshot()` in .svelte/.svelte.ts files, or a JSON copy in plain .ts.
 - **Tables:** they use TipTap's `colwidth` (px) on cells plus a matching `<colgroup>`. `sanitize(html, widthPx)` converts Word % widths into that format.
 

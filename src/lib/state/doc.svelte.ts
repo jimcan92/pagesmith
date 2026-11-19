@@ -1,4 +1,5 @@
 /* The open document, the selection, undo/redo and autosave. */
+import { flushSync } from 'svelte';
 import { blankTemplate, makeContentPage, makeCoverPage, newProject, uid } from '#lib/model/defaults.ts';
 import { cleanProject, cleanTemplate } from '#lib/io/legacy.ts';
 import type { Attachment, ContentPage, Orientation, Page, Project, Template } from '#lib/model/types.ts';
@@ -139,7 +140,16 @@ class DocState {
 		this.#updateFlags();
 	}
 
+	/** Close the text editor now, so its text is saved (and becomes a history step) before an
+	 *  undo/redo replaces the document; otherwise it would write its old text back on top. */
+	#endEditing() {
+		if (!this.editingId) return;
+		this.editingId = null;
+		flushSync();
+	}
+
 	undo() {
+		this.#endEditing();
 		this.commitHistory();
 		if (this.#undo.length < 2) return toast('Nothing to undo');
 		this.#redo.push(this.#undo.pop()!);
@@ -147,6 +157,7 @@ class DocState {
 	}
 
 	redo() {
+		this.#endEditing();
 		this.commitHistory();
 		if (!this.#redo.length) return toast('Nothing to redo');
 		const s = this.#redo.pop()!;

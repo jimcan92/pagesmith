@@ -12,6 +12,11 @@
 	const dims = $derived(pageDims(doc.project, page));
 	const selected = $derived(doc.currentId === page.id);
 	const warn = $derived(doc.warnings[page.id] || '');
+	const label = $derived.by(() => {
+		if (page.type === 'cover') return 'Cover';
+		const bg = bgLabel(doc.project, page);
+		return dims.land && !/landscape/i.test(bg) ? `${bg} · Landscape` : bg; // not "Landscape · Landscape"
+	});
 
 	// keep the "too full" warning up to date (measured off-screen)
 	$effect(() => {
@@ -64,7 +69,7 @@
 >
 	<Page {page} scale={ui.scale} {pnum} />
 	<span class="badge-label no-print">
-		Page {index + 1} · {page.type === 'cover' ? 'Cover' : bgLabel(doc.project, page)}{dims.land ? ' · Landscape' : ''}
+		Page {index + 1} · {label}
 	</span>
 	{#if warn}<span class="warn-label no-print">⚠ {warn}</span>{/if}
 </div>
