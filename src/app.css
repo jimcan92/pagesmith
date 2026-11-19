@@ -1,0 +1,177 @@
+@import 'tailwindcss';
+@plugin 'daisyui' {
+	themes: false;
+}
+
+@plugin 'daisyui/theme' {
+	name: 'pagesmith';
+	default: true;
+	color-scheme: light;
+	--color-base-100: #ffffff;
+	--color-base-200: #f4f2ee;
+	--color-base-300: #e4ded6;
+	--color-base-content: #1f1a17;
+	--color-primary: #6b1d14;
+	--color-primary-content: #ffffff;
+	--color-secondary: #f4c20d;
+	--color-secondary-content: #6b1d14;
+	--color-accent: #2f7de1;
+	--color-accent-content: #ffffff;
+	--color-neutral: #3a322d;
+	--color-neutral-content: #f4f2ee;
+	--color-info: #2f7de1;
+	--color-success: #2e7d32;
+	--color-warning: #e0a100;
+	--color-error: #c0392b;
+	--radius-selector: 0.375rem;
+	--radius-field: 0.375rem;
+	--radius-box: 0.5rem;
+}
+
+html,
+body {
+	height: 100%;
+	margin: 0;
+}
+
+/* ===================== the page (real inches; scaled on screen, 1:1 in print) ===================== */
+.ps-page {
+	position: absolute;
+	left: 0;
+	top: 0;
+	transform-origin: 0 0;
+	overflow: hidden;
+	background: #fff;
+}
+.ps-page .bg,
+.ps-page .cover-img {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: fill;
+	display: block;
+	pointer-events: none;
+	user-select: none;
+}
+.ps-page .safe {
+	position: absolute;
+	display: flex;
+	flex-direction: column;
+	gap: 0.12in;
+}
+.ps-page .grid-area {
+	flex: 1 1 auto;
+	min-height: 0;
+	display: grid;
+	gap: 0.15in;
+}
+.ps-page .grid-area.free {
+	display: block;
+	position: relative;
+}
+.ps-page figure {
+	margin: 0;
+	min-height: 0;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.04in;
+	position: relative;
+}
+.ps-page .imgbox {
+	flex: 1;
+	min-height: 0;
+	position: relative;
+}
+.ps-page .imgbox img {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	user-select: none;
+	-webkit-user-drag: none;
+}
+.ps-page .lbl {
+	flex: none;
+	font-family: Arial, Helvetica, sans-serif;
+	line-height: 1.25;
+	overflow-wrap: anywhere;
+	outline: none;
+}
+.ps-page .imgbox .overlay {
+	position: absolute;
+	left: 0;
+	right: 0;
+	z-index: 1;
+	padding: 0.04in 0.08in;
+	background: rgba(255, 255, 255, 0.86);
+	display: flex;
+	flex-direction: column;
+	gap: 0.02in;
+}
+.ps-page .imgbox .overlay.top { top: 0; }
+.ps-page .imgbox .overlay.bottom { bottom: 0; }
+.ps-page .pnum {
+	position: absolute;
+	font: 10pt Arial, Helvetica, sans-serif;
+	color: #222;
+}
+.ps-page .empty-cover {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	text-align: center;
+	font: 16pt/1.5 Arial, sans-serif;
+	color: #999;
+	border: 3px dashed #ddd;
+}
+
+/* page text (shared by the static view and the live editor) */
+.rt {
+	flex: none;
+	font-family: Arial, Helvetica, sans-serif;
+	font-size: 11pt;
+	line-height: 1.35;
+	color: #111;
+	overflow-wrap: anywhere;
+	outline: none;
+}
+.rt p { margin: 0 0 0.5em; }
+.rt h1 { font-size: 16pt; font-weight: 700; margin: 0 0 0.4em; }
+.rt h2 { font-size: 13.5pt; font-weight: 700; margin: 0 0 0.4em; }
+.rt h3 { font-size: 12pt; font-weight: 700; margin: 0 0 0.35em; }
+.rt ul, .rt ol { margin: 0 0 0.5em; padding-left: 1.6em; }
+.rt ul { list-style: disc; }
+.rt ol { list-style: decimal; }
+.rt li p { margin: 0; }
+.rt blockquote { margin: 0 0 0.5em 2em; }
+.rt table { border-collapse: collapse; width: 100%; table-layout: fixed; margin: 0 0 0.6em; }
+.rt td, .rt th { border: 1px solid #444; padding: 3px 6px; vertical-align: top; overflow-wrap: anywhere; position: relative; }
+.rt th { background: #f3f0ea; font-weight: 700; }
+.rt td p, .rt th p { margin: 0; }
+.rt > :last-child { margin-bottom: 0; }
+.rt .tableWrapper { overflow: visible; }
+.rt .column-resize-handle { position: absolute; right: -2px; top: 0; bottom: 0; width: 4px; background: #2f7de1; pointer-events: none; }
+.rt.resize-cursor { cursor: col-resize; }
+.rt .selectedCell::after { content: ''; position: absolute; inset: 0; background: rgba(47, 125, 225, 0.15); pointer-events: none; }
+.rt p.is-editor-empty:first-child::before {
+	content: attr(data-placeholder);
+	color: #aaa;
+	float: left;
+	height: 0;
+	pointer-events: none;
+}
+
+/* ===================== printing: only the pages, at real size ===================== */
+@media print {
+	html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
+	.no-print { display: none !important; }
+	.print-root, .print-root * { visibility: visible; }
+	.canvas-scroll { overflow: visible !important; height: auto !important; padding: 0 !important; display: block !important; background: #fff !important; }
+	.page-slot { width: auto !important; height: auto !important; box-shadow: none !important; outline: none !important; margin: 0 !important; break-after: page; position: relative !important; }
+	.page-slot:last-child { break-after: auto; }
+	.page-slot .ps-page { position: relative !important; transform: none !important; }
+	* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
