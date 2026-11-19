@@ -1,6 +1,6 @@
 # Pagesmith v2: where we are (handoff)
 
-Last updated: 2026-11-19 (Phases 3–6 done). The full plan is in `C:\Users\jimcan\.claude\plans\ato-nya-ni-gamitan-unified-spark.md`.
+Last updated: 2026-11-19 (all phases done; released). The full plan is in `C:\Users\jimcan\.claude\plans\ato-nya-ni-gamitan-unified-spark.md`.
 
 ## Goal
 Rewrite Pagesmith in **SvelteKit 3 + daisyUI 5 + TipTap 3**, as a Word-like editor:
@@ -13,9 +13,10 @@ Decisions already made with the user:
 - Static hosting only, no SSR (it works on GitHub Pages and on Vercel).
 - Same repo and same URL.
 
-## ⚠ Important
-- **Do NOT push yet.** The live site (jimcan92.github.io/pagesmith) still serves the OLD version from `main` (root `index.html`). The old files were moved to `old/` (not committed yet). Pushing now would break the live site. Deploy only at Phase 7, with GitHub Actions.
-- The v2 work is committed and pushed to the **`v2` branch** (github.com/jimcan92/pagesmith/tree/v2). `main` = the old, live version. Keep working on `v2`. At Phase 7, merge to `main` and switch Pages to Actions.
+## Release
+- v2 is merged into `main`. Every push to `main` builds and deploys the site with GitHub Actions (`.github/workflows/deploy.yml`: check, test, build with `BASE_PATH=/pagesmith`, deploy to Pages). GitHub Pages must be set to **Source: GitHub Actions** (Settings → Pages).
+- The old app (root `index.html`, `css/`, `js/`) is gone from `main`; it is still in git history before the merge (e.g. commit f959be3).
+- The `v2` branch can be deleted once the live site is confirmed.
 
 ## Status by phase
 - [x] **Phase 1: Foundations.** Scaffold, model, storage, io modules, and 14 unit tests (`npm test` passes; this includes importing the real Area IV docx).
@@ -49,11 +50,8 @@ Decisions already made with the user:
   - **Save never worked**: `files.ts` (plain .ts) used `$state.snapshot` → `rune_outside_svelte`. Now `doc.projectCopy()`, and `src/lib/runes.test.ts` fails if a rune shows up in a plain .ts file,
   - landscape pages were portrait-sized in Word (the `docx` library swaps width/height itself for landscape; we passed them already swapped),
   - "Word's version" added the pages to the open document instead of opening the file; now `openWordVersion()` replaces the document like any Open.
-- [ ] **Phase 7: Polish and release.**
-  - README, delete `old/`,
-  - `.github/workflows/deploy.yml` (build with `BASE_PATH=/pagesmith`, deploy Pages),
-  - switch Pages to Actions: `gh api -X PUT repos/jimcan92/pagesmith/pages -f build_type=workflow`,
-  - commit and push.
+- [x] **Phase 7: Release** (2026-11-19): new README, `old/` deleted, `.github/workflows/deploy.yml`, v2 merged into `main`. Checked the production build served under `/pagesmith/` locally: it loads, editing and Save .docx work, no failed requests. PDF import in the production build was not fully checked locally (the browser pane was hidden, which pauses the drawing pdf.js waits for); check it once on the live site.
+  - Building locally from Git Bash: use `MSYS_NO_PATHCONV=1 BASE_PATH=/pagesmith npm run build` (Git Bash otherwise turns `/pagesmith` into a Windows path and the build fails).
 
 ## How to run
 ```
