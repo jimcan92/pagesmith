@@ -99,9 +99,72 @@
   }
   const templateIsEmpty = () => !project.template.cover && !bgList().some((b) => b.src);
 
+  /* ------------------------------------------------------------------ undo / redo */
+  // Snapshots of the whole document (pictures are stored separately, so these stay small).
+  const HISTORY_MAX = 150;
+  const history = { undo: [], redo: [], timer: null, restoring: false };
+  const snapshot = () => JSON.stringify(project);
+
+  /** Start a fresh history (after boot / open / new). */
+  function resetHistory() {
+    clearTimeout(history.timer);
+    history.undo = [snapshot()];
+    history.redo = [];
+    updateUndoButtons();
+  }
+  /** Record the current state (debounced, so typing a sentence is one step). */
+  function scheduleHistory() {
+    if (history.restoring) return;
+    clearTimeout(history.timer);
+    history.timer = setTimeout(commitHistory, 400);
+  }
+  function commitHistory() {
+    clearTimeout(history.timer);
+    history.timer = null;
+    if (!project || history.restoring) return;
+    const s = snapshot();
+    if (s === history.undo[history.undo.length - 1]) return;
+    history.undo.push(s);
+    if (history.undo.length > HISTORY_MAX) history.undo.shift();
+    history.redo = [];
+    updateUndoButtons();
+  }
+  function restore(s) {
+    history.restoring = true;
+    try {
+      project = JSON.parse(s);
+      if (!pageById(currentId)) currentId = project.pages[0]?.id;
+      activeFree = null;
+      $('#projectName').value = project.name;
+      renderPreview(); renderEditor();
+      touch();
+    } finally { history.restoring = false; }
+    updateUndoButtons();
+  }
+  function undo() {
+    if (history.timer) commitHistory();  // keep the last unsaved change as a step
+    if (history.undo.length < 2) return toast('Nothing to undo');
+    history.redo.push(history.undo.pop());
+    restore(history.undo[history.undo.length - 1]);
+  }
+  function redo() {
+    if (history.timer) commitHistory();
+    if (!history.redo.length) return toast('Nothing to redo');
+    const s = history.redo.pop();
+    history.undo.push(s);
+    restore(s);
+  }
+  function updateUndoButtons() {
+    const u = $('#btnUndo'), r = $('#btnRedo');
+    if (u) u.disabled = history.undo.length < 2 && !history.timer;
+    if (r) r.disabled = !history.redo.length;
+  }
+
   /* ------------------------------------------------------------------ autosave */
   let saveTimer = null;
   function touch() {
+    scheduleHistory();
+    updateUndoButtons();
     $('#saveStatus').textContent = 'Saving…';
     clearTimeout(saveTimer);
     saveTimer = setTimeout(async () => {
@@ -127,6 +190,8 @@
   }
   async function cleanupImages() {
     const used = referencedImageIds(true);
+    // pictures that undo/redo could bring back must stay
+    for (const s of [...history.undo, ...history.redo]) for (const m of s.match(/img_\w+/g) || []) used.add(m);
     const keys = (await DB.keys('images')) || [];
     for (const k of keys) {
       if (used.has(k)) continue;
@@ -2095,6 +2160,19 @@
   function wire() {
     wireSplitter();
     $('#projectName').addEventListener('input', (e) => { project.name = e.target.value; touch(); });
+    $('#btnUndo').onclick = undo;
+    $('#btnRedo').onclick = redo;
+    document.addEventListener('keydown', (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const k = e.key.toLowerCase();
+      const isUndo = k === 'z' && !e.shiftKey, isRedo = k === 'y' || (k === 'z' && e.shiftKey);
+      if (!isUndo && !isRedo) return;
+      // inside a text box, the browser's own undo handles the typing
+      if (e.target.closest?.('input, textarea, select, [contenteditable]')) return;
+      if ($('.modal-back')) return;
+      e.preventDefault();
+      if (isUndo) undo(); else redo();
+    });
     $('#btnNew').onclick = openNewDialog;
     $('#btnOpen').onclick = () => pickFiles('#fileOpen', ([f]) => {
       askConfirm('Open this file? The current document will be replaced (use “Save file” first if you still need it).', 'Open').then((ok) => ok && openProjectFile(f));
@@ -2191,6 +2269,7 @@
     renderPreview();
     renderEditor();
     $('#saveStatus').textContent = DB.db ? 'All changes saved' : 'Not saved (storage blocked)';
+    resetHistory();
     cleanupImages().catch(() => {});
   }
 

@@ -51,6 +51,8 @@ button, input, select { font: inherit; }
 .btn.primary, .topbar .btn.primary { background: var(--accent-2); border-color: var(--accent-2); color: var(--accent); font-weight: 700; }
 .btn.primary:hover { filter: brightness(1.05); }
 .btn.sm { padding: 4px 8px; font-size: 13px; }
+.btn.icon { padding: 4px 10px; font-size: 17px; line-height: 1.1; }
+.btn:disabled { opacity: .4; cursor: default; }
 .btn.danger { color: var(--danger); }
 .btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 .icon-btn {

@@ -69,6 +69,13 @@ Send it to your team. They load it with **Template → Import template…**, or 
 3. If a page has too much content, it is marked **⚠** in the list and in red in the preview.
 4. **Export PDF**: choose **Save as PDF**, set Margins to **None**, and turn on **Background graphics**.
 
+## Undo / redo
+- Use **↶ / ↷** in the top bar, or **Ctrl+Z** to undo and **Ctrl+Y** (or Ctrl+Shift+Z) to redo.
+- Everything can be undone: adding, deleting and moving pages, pictures, layouts, the template,
+  imports, and even **New** or **Open**.
+- Inside a text box, Ctrl+Z undoes your typing.
+- The undo history is kept until you close or reload the page.
+
 ## Saving
 - Your work is saved automatically in this browser on this computer.
 - **Save file** downloads a `.pagesmith.json` file with the pictures inside.
