@@ -488,7 +488,105 @@
     const what = pg.type === 'cover' ? 'Cover' : bgLabel(pg);
     slot.insertAdjacentHTML('beforeend', `<span class="badge">Page ${idx + 1} · ${esc(what)}</span>`);
     if (pg.type === 'content' && pg.layout === 'free') enableFree(slot, pg);
+    else if (pg.type === 'content') {
+      $$('.grid figure', slot).forEach((fig) => fig.addEventListener('pointerdown', (e) => startMoveDrag(e, pg, +fig.dataset.i, fig)));
+    }
     return slot;
+  }
+
+  /* ------------------------------------------------------------------ drag a picture to another page */
+  const slotAt = (x, y) => document.elementFromPoint(x, y)?.closest?.('#previewPages .slot') || null;
+  let dropTarget = null;
+  function markDropTarget(slot, fromId) {
+    const t = slot && slot.dataset.id !== fromId ? slot : null;
+    if (t === dropTarget) return;
+    dropTarget?.classList.remove('drop-target');
+    dropTarget = t;
+    dropTarget?.classList.add('drop-target');
+  }
+  /** Scroll the preview while dragging near its top or bottom edge. */
+  function autoScroll(state) {
+    const box = $('#previewPages');
+    const tick = () => {
+      if (!state.active) return;
+      const r = box.getBoundingClientRect(), edge = 60;
+      if (state.y < r.top + edge) box.scrollTop -= Math.ceil((r.top + edge - state.y) / 4);
+      else if (state.y > r.bottom - edge) box.scrollTop += Math.ceil((state.y - (r.bottom - edge)) / 4);
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+
+  /** Move attachment i of page `from` onto page `toId` (at position `at`, or at the end). */
+  function moveAttachment(from, i, toId, at = null) {
+    const to = pageById(toId);
+    if (!to || to.type !== 'content') { toast('Pictures can only go on content pages, not the cover.'); return false; }
+    const [a] = from.attachments.splice(i, 1);
+    if (!a) return false;
+    delete a.box;
+    if (to.layout === 'free') placeNew(to, a);
+    if (at == null || at > to.attachments.length) to.attachments.push(a); else to.attachments.splice(at, 0, a);
+    if (activeFree && activeFree.pageId === from.id) activeFree = null;
+    renderOne(from.id); renderOne(to.id);
+    if (currentId === from.id || currentId === to.id) renderEditor();
+    renderPageList(); touch();
+    toast(`Moved to page ${pageIndex(to.id) + 1}`);
+    return true;
+  }
+
+  /** Grid layouts: drag a picture onto another page (or onto another picture to swap order). */
+  function startMoveDrag(e, pg, i, fig) {
+    if (e.button !== 0) return;
+    const sx = e.clientX, sy = e.clientY;
+    let ghost = null;
+    const state = { active: false, y: sy };
+    const onMove = (ev) => {
+      state.y = ev.clientY;
+      if (!state.active) {
+        if (Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) < 6) return;
+        state.active = true;
+        ghost = document.createElement('div');
+        ghost.className = 'drag-ghost';
+        ghost.innerHTML = `<img alt="" src="${esc($('img', fig)?.src || '')}">`;
+        document.body.appendChild(ghost);
+        document.body.classList.add('dragging-pic');
+        fig.classList.add('drag-source');
+        autoScroll(state);
+      }
+      ghost.style.left = ev.clientX + 'px'; ghost.style.top = ev.clientY + 'px';
+      markDropTarget(slotAt(ev.clientX, ev.clientY), null);
+    };
+    const onUp = (ev) => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      if (!state.active) return;  // a plain click: just selects the page
+      state.active = false;
+      ghost?.remove();
+      document.body.classList.remove('dragging-pic');
+      fig.classList.remove('drag-source');
+      const target = slotAt(ev.clientX, ev.clientY);
+      markDropTarget(null);
+      if (!target) return;
+      const overFig = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('figure');
+      const at = overFig && target.contains(overFig) ? +overFig.dataset.i : null;
+      if (target.dataset.id === pg.id) {
+        if (at == null || at === i) return;
+        const [a] = pg.attachments.splice(i, 1);  // same page: reorder
+        pg.attachments.splice(at, 0, a);
+        renderOne(pg.id); if (currentId === pg.id) renderAttachmentList(pg); touch();
+        return;
+      }
+      moveAttachment(pg, i, target.dataset.id, at);
+      suppressClick();
+    };
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+  }
+  /** The click that ends a drag should not also select the page under the pointer. */
+  function suppressClick() {
+    const stop = (e) => { e.stopPropagation(); e.preventDefault(); };
+    document.addEventListener('click', stop, { capture: true, once: true });
+    setTimeout(() => document.removeEventListener('click', stop, { capture: true }), 300);
   }
 
   /* ------------------------------------------------------------------ manual layout (drag & resize) */
@@ -587,11 +685,15 @@
     $$('.free-item.active').forEach((x) => x.classList.remove('active'));
     fig.classList.add('active');
     fig.setPointerCapture(e.pointerId);
+    const scroll = { active: false, y: sy };
 
     const onMove = (ev) => {
       const dx = (ev.clientX - sx) / rect.width, dy = (ev.clientY - sy) / rect.height;
       if (!moved && Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) < 3) return;
+      if (!moved && mode === 'move') { scroll.active = true; autoScroll(scroll); }
       moved = true;
+      scroll.y = ev.clientY;
+      if (mode === 'move') markDropTarget(slotAt(ev.clientX, ev.clientY), pg.id);
       let b = { ...start };
       if (mode === 'move') {
         b.x = start.x + dx; b.y = start.y + dy;
@@ -612,10 +714,19 @@
       box = clampBox(b);
       Object.assign(fig.style, { left: box.x * 100 + '%', top: box.y * 100 + '%', width: box.w * 100 + '%', height: box.h * 100 + '%' });
     };
-    const onUp = () => {
+    const onUp = (ev) => {
       fig.removeEventListener('pointermove', onMove);
       fig.removeEventListener('pointerup', onUp);
       fig.removeEventListener('pointercancel', onUp);
+      scroll.active = false;
+      const target = moved && mode === 'move' && ev.clientX != null ? slotAt(ev.clientX, ev.clientY) : null;
+      markDropTarget(null);
+      if (target && target.dataset.id !== pg.id) {  // dropped on another page
+        a.box = start;
+        moveAttachment(pg, i, target.dataset.id);
+        suppressClick();
+        return;
+      }
       if (moved) { a.box = box; touch(); }
     };
     fig.addEventListener('pointermove', onMove);
@@ -1564,6 +1675,19 @@
   }
 
   /** Move trailing blocks (or trailing table rows) of the page's text until it fits. Returns the new page or null. */
+  /** Does a table row look like a header row? (th cells, all shaded, or all bold) */
+  function isHeaderRow(tr) {
+    const cells = Array.from(tr.cells);
+    if (!cells.length) return false;
+    if (cells.every((c) => c.tagName === 'TH')) return true;
+    if (cells.every((c) => /background-color/i.test(c.getAttribute('style') || ''))) return true;
+    const filled = cells.filter((c) => c.textContent.trim());
+    return filled.length > 0 && filled.every((c) => {
+      const bold = Array.from(c.querySelectorAll('b, strong')).map((b) => b.textContent).join('').replace(/\s/g, '');
+      return bold.length >= c.textContent.replace(/\s/g, '').length * 0.9;
+    });
+  }
+
   function splitText(pg, id) {
     const holder = document.createElement('div');
     holder.innerHTML = pg.html;
@@ -1575,16 +1699,34 @@
       const last = holder.lastElementChild;
       if (!last) break;
       const rows = last.tagName === 'TABLE' ? Array.from(last.tBodies).flatMap((b) => Array.from(b.rows)) : [];
-      if (last.tagName === 'TABLE' && rows.length > 1) {
+      // a first row that looks like a header (all bold / shaded / th) must never be left alone
+      const headLike = last.tagName === 'TABLE' && !last.tHead && rows.length > 0 && isHeaderRow(rows[0]);
+      // a header never stays behind with fewer than two of its rows
+      const keep = headLike ? 3 : last.tHead ? 2 : 1;
+      if (last.tagName === 'TABLE' && rows.length > keep) {
         if (!contTable) {
           contTable = last.cloneNode(false);
           const cg = last.querySelector('colgroup'); if (cg) contTable.appendChild(cg.cloneNode(true));
-          if (last.tHead) contTable.appendChild(last.tHead.cloneNode(true));  // repeat the header row
+          // repeat the header row on the next page
+          if (last.tHead) contTable.appendChild(last.tHead.cloneNode(true));
+          else if (headLike) { const th = document.createElement('thead'); th.appendChild(rows[0].cloneNode(true)); contTable.appendChild(th); }
           contTable.appendChild(document.createElement('tbody'));
           out.insertBefore(contTable, out.firstChild);
         }
         const row = rows[rows.length - 1];
         contTable.tBodies[0].insertBefore(row, contTable.tBodies[0].firstChild);
+        // a header row in the middle of a table goes with the rows under it
+        let rem = rows.slice(0, -1);
+        while (rem.length > keep && isHeaderRow(rem[rem.length - 1])) {
+          contTable.tBodies[0].insertBefore(rem.pop(), contTable.tBodies[0].firstChild);
+        }
+      } else if (last.tagName === 'TABLE' && contTable && rows.length) {
+        // only the header (+ one row) is left: send the rest of the table along, header shown once
+        const body = contTable.tBodies[0];
+        rows.slice(headLike ? 1 : 0).reverse().forEach((r) => body.insertBefore(r, body.firstChild));
+        if (!headLike && last.tHead && !contTable.tHead) contTable.insertBefore(last.tHead, body);
+        last.remove();
+        contTable = null;
       } else {
         if (holder.children.length === 1 && !moved) break;  // a single block that is too big: leave it
         contTable = null;

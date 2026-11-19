@@ -231,6 +231,17 @@ input[type=number] { width: 72px; }
 .page .imgbox .overlay.top { top: 0; }
 .page .imgbox .overlay.bottom { bottom: 0; }
 
+/* drag a picture to another page */
+.page .grid figure { cursor: grab; user-select: none; touch-action: none; }
+.page .grid figure.drag-source { opacity: .35; }
+.slot.drop-target { outline: 4px dashed #2f7de1 !important; outline-offset: 3px; }
+.drag-ghost {
+  position: fixed; z-index: 100; pointer-events: none; transform: translate(-50%, -50%) rotate(-3deg);
+  width: 110px; padding: 4px; background: #fff; border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.35);
+}
+.drag-ghost img { width: 100%; display: block; border-radius: 3px; }
+body.dragging-pic, body.dragging-pic * { cursor: grabbing !important; }
+
 /* manual layout */
 .page .grid.free { display: block; position: relative; }
 .page .free-item { position: absolute; margin: 0; cursor: move; touch-action: none; user-select: none; }
@@ -309,7 +320,8 @@ input[type=number] { width: 72px; }
   .layout, .preview, .preview-pages { display: block; overflow: visible; padding: 0; margin: 0; background: #fff; height: auto; }
   .slot { width: auto !important; height: auto !important; box-shadow: none; outline: none !important; margin: 0; break-after: page; position: relative; }
   .slot:last-child { break-after: auto; }
-  .slot::after, .slot .badge, .page .empty-cover, .page .free-item .h { display: none !important; }
+  .slot::after, .slot .badge, .page .empty-cover, .page .free-item .h, .drag-ghost { display: none !important; }
+  .page .grid figure.drag-source { opacity: 1; }
   .page .free-item, .page .free-item:hover, .page .free-item.active { outline: none !important; }
   .page { position: relative; transform: none !important; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }

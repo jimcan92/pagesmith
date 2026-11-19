@@ -54,6 +54,9 @@ Send it to your team. They load it with **Template → Import template…**, or 
      When a page has attachments, Top puts the text above the pictures and Bottom puts it below them.
    - **Attachments**: drop photos or PDFs, click to browse, or paste a screenshot (Ctrl+V).
      Pictures fit inside their boxes. ⟳ rotates a photo, ⇲ moves it to its own page.
+   - **Move a picture to another page** by dragging it in the preview and dropping it on that page.
+     The preview scrolls when you drag near its top or bottom edge.
+     If you drop it on another picture on the same page, the two swap order.
    - **Layout**: Auto, a fixed grid (1, 2, 3, 4, 6, 9 per page), or **Manual (drag & resize)**.
      In Manual you drag pictures in the preview, and drag a corner handle to resize.
      The shape is kept unless you hold **Shift**. Hold **Alt** to turn off snapping.
