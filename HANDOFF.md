@@ -1,6 +1,6 @@
 # Pagesmith v2: where we are (handoff)
 
-Last updated: 2026-11-19 (Phases 3–5 done). The full plan is in `C:\Users\jimcan\.claude\plans\ato-nya-ni-gamitan-unified-spark.md`.
+Last updated: 2026-11-19 (Phases 3–6 done). The full plan is in `C:\Users\jimcan\.claude\plans\ato-nya-ni-gamitan-unified-spark.md`.
 
 ## Goal
 Rewrite Pagesmith in **SvelteKit 3 + daisyUI 5 + TipTap 3**, as a Word-like editor:
@@ -37,11 +37,18 @@ Decisions already made with the user:
   - Undo (button) while a page's text was open did nothing: the editor wrote its text back over the restored document; undo/redo now close the editor first (`flushSync`), so the typing is its own step,
   - text fields, radios and checkboxes had no border: the daisyUI theme was missing `--border` (and the size/depth variables),
   - landscape pages were labelled "Landscape · Landscape".
-- [ ] **Phase 6: Files.** Code is written (`io/docxExport.ts`, `state/files.ts`), NOT tested:
-  - Save .docx: each page becomes a Word section, with the template background in the header and text through `docx/html` `htmlToContent`; data is embedded in `customXml` with picture SHA-256 matching,
-  - Open .docx: a Pagesmith-made file restores exactly; if Word changed it, the user chooses Word's or Pagesmith's version,
-  - Word import dialog, opening legacy .json, Export PDF (print CSS).
-  - **Verify with MS Word through COM:** PowerShell `Word.Application` → `Documents.Open` → `ExportAsFixedFormat`, then check page sizes with PyMuPDF.
+- [x] **Phase 6: Files.** Tested (2026-11-19) with a 4-page document (cover, formatted text + list + merged-cell table, grid pictures with title/caption, a landscape page with manual pictures, a special background, page numbers):
+  - Save .docx, then opened in **MS Word through COM** and exported to PDF: 4 pages, right sizes and orientations, backgrounds, text, table, pictures, captions and page numbers (cover not numbered) all match the app,
+  - Open that .docx in Pagesmith: identical document; with all stored pictures wiped first, all 8 come back from the file (SHA-256 match),
+  - a copy edited and saved by Word: the "changed in Word" choice appears; Pagesmith's version restores exactly, Word's version keeps the document's template/cover/paper/page numbers and brings in Word's text,
+  - a plain Word file (heading, bold, table, picture, landscape section) through the Word import dialog,
+  - an old v2 `.pagesmith.json` with an embedded picture,
+  - Export PDF: the dialog and print call work; print CSS checked by applying the `@media print` rules (pages at true size, page breaks, no app UI). A real print to PDF was not run (the print window can't be driven here).
+  Not tested: saving through the browser's own save dialog (`showSaveFilePicker`); only the download fallback was exercised.
+  Fixed along the way:
+  - **Save never worked**: `files.ts` (plain .ts) used `$state.snapshot` → `rune_outside_svelte`. Now `doc.projectCopy()`, and `src/lib/runes.test.ts` fails if a rune shows up in a plain .ts file,
+  - landscape pages were portrait-sized in Word (the `docx` library swaps width/height itself for landscape; we passed them already swapped),
+  - "Word's version" added the pages to the open document instead of opening the file; now `openWordVersion()` replaces the document like any Open.
 - [ ] **Phase 7: Polish and release.**
   - README, delete `old/`,
   - `.github/workflows/deploy.yml` (build with `BASE_PATH=/pagesmith`, deploy Pages),
@@ -71,6 +78,8 @@ npm run build                    # static build → build/
 - **Ribbon groups:** a `<br>` does nothing inside the flex groups; use explicit `flex-col` rows. Keep every tab ≤ 2 rows at 1024px.
 - **daisyUI theme:** a custom `@plugin 'daisyui/theme'` must set `--border`, `--size-field`, `--size-selector`, `--depth`, `--noise`, or fields render without borders.
 - **Testing file pickers in the browser pane:** override `HTMLInputElement.prototype.click` for `type=file` to set `files` from a `DataTransfer` and fire `onchange`; override `HTMLAnchorElement.prototype.click` to capture downloads. Real files can be made with a canvas (images) or a hand-written PDF string.
+- **docx library and landscape:** give `page.size` in portrait order (width < height) with `orientation: LANDSCAPE`; the library swaps them.
+- **Checking a saved .docx with Word:** to get the file out of the browser pane, POST it to a tiny localhost receiver (see git history of this note: Phase 6), then PowerShell `Word.Application` → `Documents.Open` → `ExportAsFixedFormat(path, 17)`, and PyMuPDF for page sizes / thumbnails.
 - **Cloning state:** `structuredClone` throws on `$state` proxies. Use `$state.snapshot()` in .svelte/.svelte.ts files, or a JSON copy in plain .ts.
 - **Tables:** they use TipTap's `colwidth` (px) on cells plus a matching `<colgroup>`. `sanitize(html, widthPx)` converts Word % widths into that format.
 

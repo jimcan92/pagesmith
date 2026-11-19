@@ -5,7 +5,7 @@ import type { Template } from '#lib/model/types.ts';
 import { doc } from './doc.svelte';
 import { toast } from './toasts.svelte';
 import { confirmAsk, openDialog } from './ui.svelte';
-import { startWordImport } from './actions';
+import { buildWordPages, startWordImport } from './actions';
 
 /** Pick files with the browser's file dialog. */
 export function pickFiles(accept: string, multiple = false): Promise<File[]> {
@@ -86,6 +86,36 @@ export async function restoreFromDocx(file: File, info: Awaited<ReturnType<typeo
 	toast('Opened ' + file.name);
 }
 
+/**
+ * "Word's version" of a Pagesmith .docx that was changed in Word: the document's own settings
+ * (name, template, paper, page numbers, cover) come from the data Pagesmith stored in the file,
+ * and the pages are read from what Word saved. Replaces the open document, like any Open.
+ */
+export async function openWordVersion(file: File, info: Awaited<ReturnType<typeof import('#lib/io/docxExport.ts').readPagesmithDocx>>) {
+	if (!info) return;
+	if (!(await confirmAsk(`Open “${file.name}” with the changes made in Word? The current document will be replaced (you can undo).`, 'Open'))) return;
+	const t = toast(`Reading ${file.name}…`, 0);
+	try {
+		const { parseDocx } = await import('#lib/io/docxImport.ts');
+		const parsed = await parseDocx(await file.arrayBuffer());
+		await info.loadImages(); // the template's pictures
+		const p = cleanProject(info.project);
+		p.pages = p.pages.filter((pg) => pg.type === 'cover');
+		t.close();
+		doc.replace(p);
+		// Pagesmith writes the cover as an empty full-bleed page; Word may keep it as a page of its own
+		const skip = p.pages.length > 0 && !!parsed.pages[0]?.zeroMargins;
+		await buildWordPages(parsed, file.name, { skip, split: true, layout: 'auto' });
+		if (!doc.project.pages.some((pg) => pg.type === 'content')) doc.addPage('portrait');
+		doc.select(doc.project.pages[0].id);
+		currentHandle = null; // saving writes a new file rather than over the one Word changed
+	} catch (e) {
+		t.close();
+		console.error(e);
+		toast(`Could not read ${file.name}: ${(e as Error).message}`, 6000);
+	}
+}
+
 /* ---------------- save (.docx) ---------------- */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let currentHandle: any = null; // File System Access handle, when the browser has one
@@ -94,7 +124,7 @@ export async function saveDocx(saveAs = false) {
 	const t = toast('Saving…', 0);
 	try {
 		const { buildDocx } = await import('#lib/io/docxExport.ts');
-		const blob = await buildDocx($state.snapshot(doc.project) as never);
+		const blob = await buildDocx(doc.projectCopy());
 		const name = safeName(doc.project.name) + '.docx';
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const w = window as any;

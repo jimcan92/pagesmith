@@ -176,7 +176,8 @@ async function contentSection(project: Project, pg: ContentPage, imgCache: Map<s
 			type: SectionType.NEXT_PAGE,
 			verticalAlign: vAlign,
 			page: {
-				size: { width: twip(w), height: twip(h), orientation: land ? PageOrientation.LANDSCAPE : PageOrientation.PORTRAIT },
+				// the docx library swaps width/height itself for landscape, so it wants them in portrait order
+				size: { width: twip(Math.min(w, h)), height: twip(Math.max(w, h)), orientation: land ? PageOrientation.LANDSCAPE : PageOrientation.PORTRAIT },
 				margin: { top: twip(m.top), right: twip(m.right), bottom: twip(m.bottom), left: twip(m.left), header: 0, footer: twip(project.pageNumbers.bottom) }
 			}
 		},

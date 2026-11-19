@@ -105,6 +105,8 @@ class DocState {
 	}
 
 	#snapshot = () => JSON.stringify($state.snapshot(this.project));
+	/** A plain (non-reactive) copy of the document, for code outside .svelte(.ts) files where runes don't work. */
+	projectCopy(): Project { return $state.snapshot(this.project) as Project; }
 
 	resetHistory() {
 		if (this.#historyTimer) clearTimeout(this.#historyTimer);

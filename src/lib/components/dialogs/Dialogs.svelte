@@ -4,7 +4,7 @@
 	import { doc } from '#lib/state/doc.svelte.ts';
 	import { ui, closeDialog } from '#lib/state/ui.svelte.ts';
 	import { addPhotoPages, buildWordPages, startWordImport } from '#lib/state/actions.ts';
-	import { importTemplateFile, restoreFromDocx } from '#lib/state/files.ts';
+	import { importTemplateFile, openWordVersion, restoreFromDocx } from '#lib/state/files.ts';
 	import { imageUrl } from '#lib/state/storage.ts';
 	import { tick } from 'svelte';
 	import Modal from './Modal.svelte';
@@ -190,7 +190,7 @@
 		</ul>
 		{#snippet actions()}
 			<button class="btn btn-sm" onclick={closeDialog}>Cancel</button>
-			<button class="btn btn-sm" onclick={() => { const f = d.data.file; closeDialog(); startWordImport(f); }}>Word's version</button>
+			<button class="btn btn-sm" onclick={() => { const { file, info } = d.data; closeDialog(); openWordVersion(file, info); }}>Word's version</button>
 			<button class="btn btn-sm btn-primary" onclick={() => { const { file, info } = d.data; closeDialog(); restoreFromDocx(file, info); }}>Pagesmith's version</button>
 		{/snippet}
 	</Modal>
