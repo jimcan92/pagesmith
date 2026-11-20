@@ -3,6 +3,7 @@
 	import { areaAspectFromMargins } from '#lib/model/layout.ts';
 	import type { ContentPage } from '#lib/model/types.ts';
 	import { doc } from '#lib/state/doc.svelte.ts';
+	import { track } from '#lib/analytics.ts';
 
 	let { page }: { page: ContentPage } = $props();
 
@@ -17,6 +18,7 @@
 	const previewAspect = $derived(areaAspectFromMargins(doc.project, page));
 
 	function apply(k: PresetKey) {
+		track('preset-' + k);
 		const boxes = presetBoxes(k, ars, areaAspect());
 		page.attachments.forEach((a, i) => (a.box = boxes[i]));
 		page.layout = 'free';

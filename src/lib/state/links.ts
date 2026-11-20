@@ -5,6 +5,7 @@ import { doc } from './doc.svelte';
 import { live } from './editor.svelte';
 import { openDialog } from './ui.svelte';
 import { toast } from './toasts.svelte';
+import { track } from '#lib/analytics.ts';
 
 export interface LinkTarget {
 	pic?: { pageId: string; i: number };
@@ -36,6 +37,7 @@ export function openLinkDialog() {
 /** Apply the dialog. Returns an error message, or '' when done. */
 export function applyLink(t: LinkTarget, url: string, text: string): string {
 	const href = safeUrl(url);
+	if (href) track(t.pic ? 'link-picture' : 'link-text');
 	if (!href) return 'Type a web address (https://…), an e-mail address or a phone link (tel:…).';
 	if (t.pic) {
 		const a = (doc.pageById(t.pic.pageId) as ContentPage | undefined)?.attachments[t.pic.i];

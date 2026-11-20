@@ -1,5 +1,6 @@
 /* The open document, the selection, undo/redo and autosave. */
 import { flushSync } from 'svelte';
+import { track } from '#lib/analytics.ts';
 import { blankTemplate, makeContentPage, makeCoverPage, newProject, uid } from '#lib/model/defaults.ts';
 import { cleanProject, cleanTemplate } from '#lib/io/legacy.ts';
 import type { Attachment, ContentPage, Orientation, Page, Project, Template } from '#lib/model/types.ts';
@@ -211,6 +212,7 @@ class DocState {
 	}
 
 	addPage(orientation: Orientation, bg = 'default') {
+		track(orientation === 'landscape' ? 'add-landscape-page' : 'add-portrait-page');
 		return this.insertPages([makeContentPage(orientation, bg)])[0];
 	}
 

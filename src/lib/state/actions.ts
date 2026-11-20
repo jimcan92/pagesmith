@@ -10,6 +10,7 @@ import type { DocxResult } from '#lib/io/docxImport.ts';
 import { doc } from './doc.svelte';
 import { toast } from './toasts.svelte';
 import { openDialog } from './ui.svelte';
+import { track } from '#lib/analytics.ts';
 
 const newAtt = (id: string, w: number, h: number, caption = ''): Attachment => ({ id: uid('att'), src: id, title: '', caption, ar: w / h });
 
@@ -20,6 +21,7 @@ function placeFree(pg: ContentPage, a: Attachment) {
 
 /** Files dropped/pasted/picked for a page: pictures go on it, each PDF page becomes a page, Word opens the import. */
 export async function addFiles(pageId: string, files: File[]) {
+	track('add-pictures');
 	const pg = doc.pageById(pageId);
 	const imgs = files.filter(isImage), pdfs = files.filter(isPdf), docx = files.filter(isDocx);
 	if (!imgs.length && !pdfs.length && !docx.length) return toast('Only pictures, PDF and Word files can be added.');
@@ -46,6 +48,7 @@ export async function addFiles(pageId: string, files: File[]) {
 }
 
 export async function addPdfPages(file: File, afterId: string) {
+	track('import-pdf');
 	const created: ContentPage[] = [];
 	const t = toast(`Reading ${file.name}…`, 0);
 	try {
@@ -71,6 +74,7 @@ export async function addPdfPages(file: File, afterId: string) {
 
 /** Many photos at once → pages with `per` photos each. */
 export async function addPhotoPages(files: File[], opts: { per: number; orientation: 'portrait' | 'landscape' | 'auto'; fileNames: boolean; title: string }) {
+	track('photo-pages');
 	const t = toast('Adding photos…', 0);
 	const pages: ContentPage[] = [];
 	let pg: ContentPage | null = null;
@@ -119,6 +123,7 @@ export async function startWordImport(file: File) {
 }
 
 export async function buildWordPages(parsed: DocxResult, fileName: string, opts: { skip: boolean; split: boolean; layout: 'auto' | 'free' }) {
+	track('import-word');
 	let from = 0;
 	if (opts.skip) {
 		from = 1;

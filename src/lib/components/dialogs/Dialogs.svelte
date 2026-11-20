@@ -10,6 +10,7 @@
 	import Modal from './Modal.svelte';
 	import TemplateDialog from './TemplateDialog.svelte';
 	import LinkDialog from './LinkDialog.svelte';
+	import { track } from '#lib/analytics.ts';
 
 	const d = $derived(ui.dialog);
 
@@ -60,6 +61,7 @@
 
 	/* Export PDF */
 	function print() {
+		track('export-pdf');
 		closeDialog();
 		setTimeout(() => window.print(), 80);
 	}

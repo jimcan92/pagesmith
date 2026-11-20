@@ -6,6 +6,7 @@
 	import { toast } from '#lib/state/toasts.svelte.ts';
 	import { moveOverflow } from '#lib/state/actions.ts';
 	import Group from './Group.svelte';
+	import { track } from '#lib/analytics.ts';
 	import RectangleVertical from '@lucide/svelte/icons/rectangle-vertical';
 	import RectangleHorizontal from '@lucide/svelte/icons/rectangle-horizontal';
 	import AlignTop from '@lucide/svelte/icons/align-vertical-justify-start';
@@ -21,6 +22,7 @@
 
 	function setOrientation(o: Orientation) {
 		if (!pg || pg.orientation === o) return;
+		track('switch-to-' + o);
 		pg.orientation = o;
 		if (pg.bg !== 'none' && bgById(doc.project, pg.bg)?.orientation !== o) pg.bg = 'default';
 		pg.attachments.forEach((a) => delete a.box);

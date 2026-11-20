@@ -6,6 +6,7 @@ import { doc } from './doc.svelte';
 import { toast } from './toasts.svelte';
 import { confirmAsk, openDialog } from './ui.svelte';
 import { buildWordPages, startWordImport } from './actions';
+import { track } from '#lib/analytics.ts';
 
 /** Pick files with the browser's file dialog. */
 export function pickFiles(accept: string, multiple = false): Promise<File[]> {
@@ -67,6 +68,7 @@ async function openJson(file: File) {
 
 /** A .docx: a Pagesmith-made file opens exactly; any other Word file goes through the import. */
 export async function openDocx(file: File) {
+	track('open-docx');
 	const { readPagesmithDocx } = await import('#lib/io/docxExport.ts');
 	const info = await readPagesmithDocx(file).catch(() => null);
 	if (!info) return startWordImport(file);
@@ -121,6 +123,7 @@ export async function openWordVersion(file: File, info: Awaited<ReturnType<typeo
 let currentHandle: any = null; // File System Access handle, when the browser has one
 
 export async function saveDocx(saveAs = false) {
+	track('save-docx');
 	const t = toast('Saving…', 0);
 	try {
 		const { buildDocx } = await import('#lib/io/docxExport.ts');
