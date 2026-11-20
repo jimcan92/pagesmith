@@ -1,7 +1,7 @@
 /* Things the user does that touch files or several pages at once. */
 import { makeContentPage, uid } from '#lib/model/defaults.ts';
 import { areaAspectFromMargins, boxForAspect, contentWidthPx } from '#lib/model/layout.ts';
-import { esc, sanitize } from '#lib/model/sanitize.ts';
+import { esc, safeUrl, sanitize } from '#lib/model/sanitize.ts';
 import type { Attachment, ContentPage } from '#lib/model/types.ts';
 import { baseName, importImageFile, isDocx, isImage, isPdf } from '#lib/io/images.ts';
 import { importPdf } from '#lib/io/pdf.ts';
@@ -140,6 +140,8 @@ export async function buildWordPages(parsed: DocxResult, fileName: string, opts:
 				let info = cache.get(img.path);
 				if (!info) { info = await importImageFile(await parsed.loadImage(img)); cache.set(img.path, info); }
 				const a = newAtt(info.id, info.w, info.h);
+				const link = safeUrl(img.link);
+				if (link) a.link = link;
 				if (pg.layout === 'free') placeFree(pg, a);
 				pg.attachments.push(a);
 			} catch (e) {

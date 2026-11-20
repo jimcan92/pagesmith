@@ -4,6 +4,7 @@ import StarterKit from '@tiptap/starter-kit';
 import TextAlign from '@tiptap/extension-text-align';
 import { TextStyleKit } from '@tiptap/extension-text-style';
 import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table';
+import { safeUrl } from '#lib/model/sanitize.ts';
 
 /** Table cells keep a background color (from Word shading or the ribbon). */
 const bgAttr = {
@@ -17,7 +18,15 @@ const Cell = TableCell.extend({ addAttributes() { return { ...this.parent?.(), .
 const Header = TableHeader.extend({ addAttributes() { return { ...this.parent?.(), ...bgAttr }; } });
 
 export const extensions = [
-	StarterKit.configure({ code: false, codeBlock: false, link: false, heading: { levels: [1, 2, 3] } }),
+	StarterKit.configure({
+		code: false, codeBlock: false, heading: { levels: [1, 2, 3] },
+		// links: typed web addresses become links; Ctrl+click opens them (see PageText), a plain click edits
+		link: {
+			openOnClick: false, autolink: true, linkOnPaste: true, defaultProtocol: 'https',
+			isAllowedUri: (url) => !!safeUrl(url),
+			HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer nofollow' }
+		}
+	}),
 	TextAlign.configure({ types: ['heading', 'paragraph'] }),
 	TextStyleKit,
 	Table.configure({ resizable: true, cellMinWidth: 24, lastColumnResizable: false }),

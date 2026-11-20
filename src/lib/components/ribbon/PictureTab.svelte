@@ -9,6 +9,7 @@
 	import { toast } from '#lib/state/toasts.svelte.ts';
 	import Group from './Group.svelte';
 	import ArrangePresets from './ArrangePresets.svelte';
+	import { boxesFromScreen } from '../page/measure';
 	import SendToBack from '@lucide/svelte/icons/send-to-back';
 	import BringToFront from '@lucide/svelte/icons/bring-to-front';
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
@@ -16,6 +17,8 @@
 	import RotateCw from '@lucide/svelte/icons/rotate-cw';
 	import FileOutput from '@lucide/svelte/icons/file-output';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import Link2 from '@lucide/svelte/icons/link-2';
+	import { openLinkDialog } from '#lib/state/links.ts';
 	import Bold from '@lucide/svelte/icons/bold';
 	import Italic from '@lucide/svelte/icons/italic';
 
@@ -27,22 +30,8 @@
 
 	function setLayout(v: LayoutKey) {
 		if (!pg) return;
-		if (v === 'free' && pg.layout !== 'free') {
-			// start from the automatic arrangement: measured from the page on screen
-			const area = document.querySelector(`.page-slot[data-page-id="${pg.id}"] .grid-area`) as HTMLElement | null;
-			if (area) {
-				const gr = area.getBoundingClientRect();
-				area.querySelectorAll('figure').forEach((fig) => {
-					const at = pg.attachments[+(fig as HTMLElement).dataset.i!];
-					if (!at) return;
-					const r = fig.querySelector('.imgbox')!.getBoundingClientRect();
-					let w = r.width, h = r.height;
-					if (at.ar && pg.fit !== 'cover') { if (w / h > at.ar) w = h * at.ar; else h = w / at.ar; }
-					const cx = r.left + r.width / 2 - gr.left, cy = r.top + r.height / 2 - gr.top;
-					at.box = { x: (cx - w / 2) / gr.width, y: (cy - h / 2) / gr.height, w: w / gr.width, h: h / gr.height };
-				});
-			}
-		}
+		// start from the automatic arrangement: measured from the page on screen
+		if (v === 'free' && pg.layout !== 'free') boxesFromScreen(pg);
 		pg.layout = v;
 		doc.touch();
 	}
@@ -150,6 +139,7 @@
 
 	<Group label="Picture">
 		<div class="flex flex-col gap-1">
+			<button class="rb" class:on={!!a.link} onclick={openLinkDialog} title={a.link ? `Link: ${a.link} (Ctrl+K to change)` : 'Open a web address when the picture is clicked in the PDF or Word (Ctrl+K)'}><Link2 />{a.link ? 'Edit link' : 'Link'}</button>
 			<button class="rb" onclick={ownPage} title="Move this picture to a new page after this one"><FileOutput />Own page</button>
 			<button class="rb text-error" onclick={remove} title="Remove this picture (Delete key)"><Trash2 />Delete</button>
 		</div>

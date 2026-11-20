@@ -3,8 +3,26 @@
 const ALLOWED = new Set([
 	'P', 'BR', 'B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'SPAN', 'DIV', 'H1', 'H2', 'H3', 'H4',
 	'UL', 'OL', 'LI', 'TABLE', 'THEAD', 'TBODY', 'TR', 'TD', 'TH', 'COLGROUP', 'COL', 'BLOCKQUOTE',
-	'SUB', 'SUP', 'FONT', 'HR', 'MARK'
+	'SUB', 'SUP', 'FONT', 'HR', 'MARK', 'A'
 ]);
+
+/**
+ * A link address that is safe to keep: web, e-mail and phone links only (never javascript: and the like).
+ * "www.site.com" or "site.com/page" get https:// in front, like Word does. Anything else → ''.
+ */
+export function safeUrl(v: string | null | undefined): string {
+	let s = String(v ?? '').trim();
+	if (!s || /\s/.test(s.replace(/ /g, '%20'))) return '';
+	s = s.replace(/ /g, '%20');
+	if (/^[\w.+-]+@[\w-]+(\.[\w-]+)+$/.test(s)) s = 'mailto:' + s;
+	else if (!/^[a-z][a-z\d+.-]*:/i.test(s) && /^[\w-]+(\.[\w-]+)+([/?#:].*)?$/.test(s)) s = 'https://' + s;
+	try {
+		const u = new URL(s);
+		return ['http:', 'https:', 'mailto:', 'tel:'].includes(u.protocol) ? s : '';
+	} catch {
+		return '';
+	}
+}
 export const DROP = new Set([
 	'SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'IMG', 'SVG', 'VIDEO', 'AUDIO', 'META', 'LINK',
 	'TITLE', 'HEAD', 'NOSCRIPT', 'TEMPLATE', 'INPUT', 'BUTTON', 'TEXTAREA', 'SELECT', 'FORM', 'CANVAS'
@@ -137,6 +155,12 @@ export function sanitize(html: string, tableWidthPx = 0): string {
 				if (tag === 'COL' && el.getAttribute('span')) extra.span = el.getAttribute('span')!;
 			}
 			if (tag === 'FONT') for (const a of ['color', 'size']) if (el.hasAttribute(a)) extra[a] = el.getAttribute(a)!;
+			if (tag === 'A') {
+				const href = safeUrl(el.getAttribute('href'));
+				// anchors without a usable address (bookmarks, javascript:) are just text
+				if (!href) { el.replaceWith(...Array.from(el.childNodes)); continue; }
+				Object.assign(extra, { href, target: '_blank', rel: 'noopener noreferrer nofollow' });
+			}
 			if (el.getAttribute('align')) keep['text-align'] = el.getAttribute('align')!;
 			for (const a of Array.from(el.attributes)) el.removeAttribute(a.name);
 			Object.entries(extra).forEach(([k, v]) => el.setAttribute(k, v));

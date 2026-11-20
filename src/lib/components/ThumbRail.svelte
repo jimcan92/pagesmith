@@ -14,6 +14,23 @@
 
 	const scaleFor = (w: number, h: number) => Math.min(W / (w * 96), (W * 1.53) / (h * 96));
 
+	// keep the current page (the one being edited / selected) in view in the rail
+	let rail = $state<HTMLElement>();
+	$effect(() => {
+		const id = doc.currentId;
+		void doc.project.pages.length; // also after pages are added / removed
+		if (!rail || !id) return;
+		requestAnimationFrame(() => {
+			const el = rail?.querySelector(`.thumb[data-page-id="${id}"]`) as HTMLElement | null;
+			if (!el || !rail) return;
+			const r = el.getBoundingClientRect(), s = rail.getBoundingClientRect();
+			if (r.top < s.top + 4 || r.bottom > s.bottom - 4) {
+				// center it, without moving the rest of the window
+				rail.scrollTo({ top: rail.scrollTop + (r.top - s.top) - (s.height - r.height) / 2, behavior: 'smooth' });
+			}
+		});
+	});
+
 	function ondragstart(e: DragEvent, id: string) {
 		dragId = id;
 		e.dataTransfer!.effectAllowed = 'move';
@@ -47,7 +64,7 @@
 
 <svelte:window onclick={() => (menu = null)} onkeydown={(e) => e.key === 'Escape' && (menu = null)} />
 
-<aside class="rail no-print">
+<aside class="rail no-print" bind:this={rail}>
 	{#each doc.project.pages as page, i (page.id)}
 		{@const d = pageDims(doc.project, page)}
 		{@const s = scaleFor(d.w, d.h)}

@@ -9,6 +9,7 @@
 	import { tick } from 'svelte';
 	import Modal from './Modal.svelte';
 	import TemplateDialog from './TemplateDialog.svelte';
+	import LinkDialog from './LinkDialog.svelte';
 
 	const d = $derived(ui.dialog);
 
@@ -181,6 +182,8 @@
 			<button class="btn btn-sm btn-primary" onclick={print}>Open print window</button>
 		{/snippet}
 	</Modal>
+{:else if d?.kind === 'link'}
+	<LinkDialog target={d.data} />
 {:else if d?.kind === 'docxChoice'}
 	<Modal title="This file was changed in Word">
 		<p><b>{d.data.file.name}</b> was saved from Word after Pagesmith made it.</p>

@@ -4,6 +4,7 @@
 	import { ui } from '#lib/state/ui.svelte.ts';
 	import { addFiles } from '#lib/state/actions.ts';
 	import { exportPdf, openFromDisk, saveDocx } from '#lib/state/files.ts';
+	import { openLinkDialog } from '#lib/state/links.ts';
 	import { clampBox, cascadeBox } from '#lib/model/layout.ts';
 	import TitleBar from '#lib/components/TitleBar.svelte';
 	import Ribbon from '#lib/components/ribbon/Ribbon.svelte';
@@ -26,6 +27,7 @@
 			if (k === 's') { e.preventDefault(); saveDocx(e.shiftKey); return; }
 			if (k === 'o') { e.preventDefault(); openFromDisk(); return; }
 			if (k === 'p') { e.preventDefault(); exportPdf(); return; }
+			if (k === 'k' && !ui.dialog) { e.preventDefault(); openLinkDialog(); return; }
 			// inside text, the editor's own undo handles typing
 			if ((k === 'z' || k === 'y') && !inText(e.target) && !ui.dialog) {
 				e.preventDefault();

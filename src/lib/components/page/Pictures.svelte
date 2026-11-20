@@ -7,6 +7,9 @@
 	import { doc } from '#lib/state/doc.svelte.ts';
 	import { inlineEdit } from './inline-edit';
 	import { pageAt, markDropTarget, autoScroll, suppressClick } from './drag';
+	import Link2 from '@lucide/svelte/icons/link-2';
+	import { boxesFromScreen } from './measure';
+	import { toast } from '#lib/state/toasts.svelte.ts';
 
 	let { page, thumb = false }: { page: ContentPage; thumb?: boolean } = $props();
 
@@ -86,17 +89,37 @@
 			const at = overFig && t.el.contains(overFig) && overFig.dataset.i != null ? +overFig.dataset.i : null;
 			suppressClick();
 			if (t.id === page.id) {
-				if (at == null || at === i) return;
-				const [a] = page.attachments.splice(i, 1);
-				page.attachments.splice(at, 0, a);
-				doc.selectedAtt = { pageId: page.id, i: at };
-				doc.touch();
+				// dropped on another picture: swap places in the grid
+				if (at != null && at !== i) {
+					const [a] = page.attachments.splice(i, 1);
+					page.attachments.splice(at, 0, a);
+					doc.selectedAtt = { pageId: page.id, i: at };
+					doc.touch();
+					return;
+				}
+				// dropped anywhere else: the picture goes where it was dropped (Manual layout)
+				toManual(i, ev.clientX - sx, ev.clientY - sy);
 				return;
 			}
 			doc.moveAttachment(page.id, i, t.id, at, placeNew);
 		};
 		document.addEventListener('pointermove', move);
 		document.addEventListener('pointerup', up);
+	}
+
+	/** Switch the page to Manual layout (everything stays put) and move picture i by (dx, dy) screen px. */
+	function toManual(i: number, dx: number, dy: number) {
+		doc.commitHistory(); // so Undo goes back to exactly before the drag
+		const gr = boxesFromScreen(page);
+		const a = page.attachments[i];
+		if (!gr || !a?.box) return;
+		const b = { ...a.box, x: a.box.x + dx / gr.width, y: a.box.y + dy / gr.height };
+		a.box = clampBox(snapMove(b));
+		page.layout = 'free';
+		doc.selectedAtt = { pageId: page.id, i };
+		doc.touch();
+		doc.commitHistory();
+		toast('Switched this page to Manual layout so the picture can go anywhere', 7000, { label: 'Undo', run: () => doc.undo() });
 	}
 
 	/** Where a picture lands on a manual-layout page. */
@@ -201,6 +224,17 @@
 			{#each p.above as k (k)}{@render label(a, k, sel)}{/each}
 			<div class="imgbox">
 				<img alt="" draggable="false" src={imageUrl(a.src)} style="object-fit:{page.fit === 'cover' ? 'cover' : 'contain'}" />
+				{#if a.link && !thumb}
+					<!-- a real link over the picture: the browser keeps it in the PDF (Print → Save as PDF) -->
+					<a class="pic-link" href={a.link} target="_blank" rel="noopener noreferrer nofollow" aria-label="Open {a.link}" tabindex="-1"></a>
+					<button
+						class="link-chip no-print"
+						title="{a.link} (click to open)"
+						aria-label="Open the picture's link"
+						onpointerdown={(e) => e.stopPropagation()}
+						onclick={(e) => { e.stopPropagation(); window.open(a.link, '_blank', 'noopener'); }}
+					><Link2 /></button>
+				{/if}
 				{#if p.top.length}<div class="overlay top">{#each p.top as k (k)}{@render label(a, k, sel)}{/each}</div>{/if}
 				{#if p.bottom.length}<div class="overlay bottom">{#each p.bottom as k (k)}{@render label(a, k, sel)}{/each}</div>{/if}
 			</div>
@@ -219,6 +253,16 @@
 	figure.selected { outline: calc(2px / var(--s, 1)) solid #2f7de1 !important; z-index: 5; }
 	:global(figure.drag-source) { opacity: 0.35; }
 	.free-item { position: absolute; margin: 0; }
+	/* on screen the picture is dragged, not followed: the link only works in the PDF (and from the chip) */
+	.pic-link { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+	.link-chip {
+		position: absolute; top: calc(4px / var(--s, 1)); right: calc(4px / var(--s, 1)); z-index: 3;
+		width: calc(22px / var(--s, 1)); height: calc(22px / var(--s, 1)); display: grid; place-items: center;
+		border: none; border-radius: 50%; background: #1155cc; color: #fff; cursor: pointer;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); opacity: 0.85;
+	}
+	.link-chip:hover { opacity: 1; }
+	.link-chip :global(svg) { width: 62%; height: 62%; }
 	.lbl.empty::before { content: attr(data-ph); color: #9aa; font-style: italic; font-weight: 400; }
 	:global(.lbl[contenteditable='true']) { cursor: text; user-select: text; background: rgba(47, 125, 225, 0.06); }
 	.h {

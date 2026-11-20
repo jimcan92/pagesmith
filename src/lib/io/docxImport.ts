@@ -11,7 +11,7 @@
  */
 import JSZip from 'jszip';
 
-export interface DocxPicture { path: string; type: string; wIn: number; hIn: number; flow: boolean }
+export interface DocxPicture { path: string; type: string; wIn: number; hIn: number; flow: boolean; link?: string }
 export interface DocxPage { index: number; landscape: boolean; html: string; pics: DocxPicture[]; zeroMargins: boolean }
 export interface DocxResult {
   pages: DocxPage[];
@@ -52,6 +52,16 @@ export async function parseDocx(arrayBuffer: ArrayBuffer, onProgress: (p: number
   const rels = {};
   const relDoc = xml(await read('word/_rels/document.xml.rels'));
   if (relDoc) for (const r of Array.from(relDoc.getElementsByTagName('Relationship'))) rels[r.getAttribute('Id')] = r.getAttribute('Target');
+  /** The web address of a hyperlink relationship (only real links: http(s), mailto, tel). */
+  const linkOf = (rid) => {
+    const t = rid && rels[rid];
+    return t && /^(https?:|mailto:|tel:)/i.test(t.trim()) ? t.trim() : '';
+  };
+  /** The address of a HYPERLINK field instruction (links to places inside the document are skipped). */
+  const fieldLink = (instr) => {
+    const m = String(instr || '').match(/^\s*HYPERLINK\s+"([^"]+)"/i);
+    return m && /^(https?:|mailto:|tel:)/i.test(m[1]) ? m[1] : '';
+  };
   const styles = xml(await read('word/styles.xml'));
   const numbering = xml(await read('word/numbering.xml'));
 
@@ -126,7 +136,7 @@ export async function parseDocx(arrayBuffer: ArrayBuffer, onProgress: (p: number
   /* ---- pictures */
   const images = [];  // { key, rel, path, w, h, skipped? }
   let skippedBg = 0, skippedUnsupported = 0;
-  function pictureFromDrawing(container, sec) {
+  function pictureFromDrawing(container, sec, inLink = '') {
     // one <wp:inline>/<wp:anchor> may hold several pictures (a group)
     const out = [];
     const holders = [...all(container, NS.wp, 'inline'), ...all(container, NS.wp, 'anchor')];
@@ -136,6 +146,9 @@ export async function parseDocx(arrayBuffer: ArrayBuffer, onProgress: (p: number
       const anchor = h.localName === 'anchor';
       const wrap = anchor ? ['wrapTopAndBottom', 'wrapSquare', 'wrapTight', 'wrapThrough'].find((n) => h.getElementsByTagNameNS(NS.wp, n).length) : 'inline';
       const blips = all(h, NS.a, 'blip');
+      // a link on the picture itself (Insert > Link on a picture in Word), else the hyperlink around it
+      const click = all(h, NS.a, 'hlinkClick')[0];
+      const link = linkOf(click && click.getAttributeNS(NS.r, 'id')) || inLink;
       // Template parts, not evidence: full-width backgrounds / headers, long thin logo strips, tiny icons.
       const fullWidth = wIn >= sec.pageW * 0.9;
       const strip = wIn >= sec.pageW * 0.6 && wIn / Math.max(0.01, hIn) > 6;
@@ -143,13 +156,13 @@ export async function parseDocx(arrayBuffer: ArrayBuffer, onProgress: (p: number
       if (fullWidth || strip || tiny) { skippedBg += blips.length; continue; }
       for (const b of blips) {
         const rid = b.getAttributeNS(NS.r, 'embed') || b.getAttributeNS(NS.r, 'link');
-        out.push({ rid, wIn: wIn / Math.max(1, blips.length > 1 ? Math.sqrt(blips.length) : 1), hIn, flow: wrap === 'inline' || wrap === 'wrapTopAndBottom' || wrap === 'wrapSquare' });
+        out.push({ rid, link, wIn: wIn / Math.max(1, blips.length > 1 ? Math.sqrt(blips.length) : 1), hIn, flow: wrap === 'inline' || wrap === 'wrapTopAndBottom' || wrap === 'wrapSquare' });
       }
     }
     // old VML pictures
     for (const im of all(container, NS.v, 'imagedata')) {
       const rid = im.getAttributeNS(NS.r, 'id');
-      if (rid) out.push({ rid, wIn: 3, hIn: 3, flow: true });
+      if (rid) out.push({ rid, link: inLink, wIn: 3, hIn: 3, flow: true });
     }
     const res = [];
     for (const p of out) {
@@ -158,7 +171,7 @@ export async function parseDocx(arrayBuffer: ArrayBuffer, onProgress: (p: number
       const path = target.startsWith('/') ? target.slice(1) : 'word/' + target.replace(/^\.\//, '');
       const extName = (path.split('.').pop() || '').toLowerCase();
       if (!IMG_TYPES[extName]) { skippedUnsupported++; continue; }
-      const img = { path, type: IMG_TYPES[extName], wIn: p.wIn, hIn: p.hIn, flow: p.flow };
+      const img = { path, type: IMG_TYPES[extName], wIn: p.wIn, hIn: p.hIn, flow: p.flow, ...(p.link ? { link: p.link } : {}) };
       images.push(img);
       res.push(img);
     }
@@ -203,19 +216,55 @@ export async function parseDocx(arrayBuffer: ArrayBuffer, onProgress: (p: number
     const pics = [];
     const extraBlocks = [];  // text boxes
 
+    let curLink = '';  // the address of the w:hyperlink being walked
     const walkRuns = (el) => {
       for (const c of Array.from(el.children)) {
         if (isW(c, 'r')) run(c);
-        else if (isW(c, 'hyperlink') || isW(c, 'ins') || isW(c, 'smartTag') || isW(c, 'fldSimple') || isW(c, 'customXml')) walkRuns(c);
+        else if (isW(c, 'hyperlink')) {
+          const before = curLink, startHtml = html.length;
+          curLink = linkOf(c.getAttributeNS(NS.r, 'id')) || curLink;
+          walkRuns(c);
+          // the link's text (its runs keep their own formatting inside)
+          if (curLink && curLink !== before && html.length > startHtml) html = html.slice(0, startHtml) + `<a href="${esc(curLink)}">` + html.slice(startHtml) + '</a>';
+          curLink = before;
+        }
+        else if (isW(c, 'fldSimple')) {
+          const url = fieldLink(wAttr(c, 'instr'));
+          const before = curLink, startHtml = html.length;
+          if (url) curLink = url;
+          walkRuns(c);
+          if (url && html.length > startHtml) html = html.slice(0, startHtml) + `<a href="${esc(url)}">` + html.slice(startHtml) + '</a>';
+          curLink = before;
+        }
+        else if (isW(c, 'ins') || isW(c, 'smartTag') || isW(c, 'customXml')) walkRuns(c);
         else if (isW(c, 'sdt')) walkRuns(kid(c, 'sdtContent') || c);
         else if (c.namespaceURI === NS.mc && c.localName === 'AlternateContent') walkRuns(c.getElementsByTagNameNS(NS.mc, 'Choice')[0] || c);
       }
     };
+    // Word's field links: { HYPERLINK "url" } — the text between "separate" and "end" is the link
+    const fields = [];  // open fields: { instr, link?, start?, before }
     const run = (r) => {
       const s = runStyle(kid(r, 'rPr'), pStyleSz);
       maxPt = Math.max(maxPt, s.szPt);
       let chunk = '';
+      const flush = () => { if (chunk) { html += s.open + chunk + s.close; chunk = ''; } };
       for (const c of Array.from(r.children)) {
+        if (isW(c, 'fldChar')) {
+          flush();
+          const type = wAttr(c, 'fldCharType');
+          if (type === 'begin') fields.push({ instr: '', before: curLink });
+          else if (type === 'separate' && fields.length) {
+            const f = fields[fields.length - 1];
+            f.link = fieldLink(f.instr);
+            if (f.link) { f.start = html.length; curLink = f.link; }
+          } else if (type === 'end' && fields.length) {
+            const f = fields.pop();
+            if (f.link && html.length > f.start) html = html.slice(0, f.start) + `<a href="${esc(f.link)}">` + html.slice(f.start) + '</a>';
+            curLink = f.before;
+          }
+          continue;
+        }
+        if (isW(c, 'instrText')) { if (fields.length) fields[fields.length - 1].instr += c.textContent; continue; }
         if (isW(c, 't')) { chunk += esc(c.textContent); text += c.textContent; if (c.textContent.trim()) seenText = true; }
         else if (isW(c, 'tab')) { chunk += '&emsp;'; text += ' '; }
         else if (isW(c, 'br')) {
@@ -225,7 +274,7 @@ export async function parseDocx(arrayBuffer: ArrayBuffer, onProgress: (p: number
         } else if (isW(c, 'lastRenderedPageBreak')) {
           if (!seenText && !html && !chunk && !pics.length) breakBefore = true;
         } else if (isW(c, 'drawing') || isW(c, 'pict') || (c.namespaceURI === NS.mc && c.localName === 'AlternateContent')) {
-          pics.push(...pictureFromDrawing(c, sec));
+          pics.push(...pictureFromDrawing(c, sec, curLink));
           // text boxes inside shapes
           for (const tb of all(c, NS.w, 'txbxContent')) for (const tp of kids(tb, 'p')) extraBlocks.push(paragraph(tp, sec, widthIn));
         }

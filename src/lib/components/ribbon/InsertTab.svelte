@@ -13,6 +13,11 @@
 	import FileText from '@lucide/svelte/icons/file-text';
 	import FileType from '@lucide/svelte/icons/file-type';
 	import Table from '@lucide/svelte/icons/table';
+	import Link2 from '@lucide/svelte/icons/link-2';
+	import { live } from '#lib/state/editor.svelte.ts';
+	import { openLinkDialog } from '#lib/state/links.ts';
+
+	const linkable = $derived(!!doc.selectedAtt || !!live.editor);
 
 	async function pictures() {
 		const pg = doc.currentContent;
@@ -50,4 +55,10 @@
 
 <Group label="Tables">
 	<button class="rb big" disabled={!doc.currentContent} onclick={() => openDialog('table')} title="Insert a table into the page text"><Table />Table</button>
+</Group>
+
+<Group label="Links">
+	<!-- mousedown keeps the text selection in the editor -->
+	<button class="rb big" disabled={!linkable} onmousedown={(e) => e.preventDefault()} onclick={openLinkDialog}
+		title="Link the selected text or picture to a web address (Ctrl+K)"><Link2 />Link</button>
 </Group>

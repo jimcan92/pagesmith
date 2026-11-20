@@ -2,7 +2,7 @@
 import { blankTemplate, makeContentPage, uid } from '#lib/model/defaults.ts';
 import { cleanLabels } from '#lib/model/labels.ts';
 import { LAYOUTS } from '#lib/model/layout.ts';
-import { sanitize, sanitizeInline } from '#lib/model/sanitize.ts';
+import { safeUrl, sanitize, sanitizeInline } from '#lib/model/sanitize.ts';
 import { clampBox } from '#lib/model/layout.ts';
 import type { Attachment, Background, Margins, Page, PaperKey, Project, Template } from '#lib/model/types.ts';
 import { PAPER_SIZES } from '#lib/model/defaults.ts';
@@ -45,6 +45,8 @@ export function cleanAttachment(a: Any): Attachment | null {
 	const out: Attachment = { id: String(a.id || uid('att')), src, title: sanitizeInline(a.title || ''), caption: sanitizeInline(a.caption || '') };
 	if (Number.isFinite(+a.ar) && +a.ar > 0) out.ar = +a.ar;
 	if (a.box && ['x', 'y', 'w', 'h'].every((k) => Number.isFinite(+a.box[k]))) out.box = clampBox({ x: +a.box.x, y: +a.box.y, w: +a.box.w, h: +a.box.h });
+	const link = safeUrl(a.link);
+	if (link) out.link = link;
 	return out;
 }
 

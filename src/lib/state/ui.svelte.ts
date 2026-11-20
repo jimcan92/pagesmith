@@ -1,6 +1,6 @@
 /* Screen-only state: zoom, ribbon tab, open dialog. */
 export type Tab = 'home' | 'insert' | 'layout' | 'picture' | 'table' | 'template';
-export type DialogKind = 'new' | 'template' | 'photos' | 'special' | 'word' | 'table' | 'confirm' | 'export' | 'docxChoice';
+export type DialogKind = 'new' | 'template' | 'photos' | 'special' | 'word' | 'table' | 'confirm' | 'export' | 'docxChoice' | 'link';
 
 export const ui = $state<{
 	zoom: 'fit' | number;

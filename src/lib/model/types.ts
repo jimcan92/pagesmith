@@ -38,6 +38,7 @@ export interface Attachment {
 	caption: string; // inline html
 	ar?: number; // picture width / height
 	box?: Box;
+	link?: string; // web address the picture opens (kept in .docx and PDF)
 }
 
 export type LabelPos = 'above' | 'below' | 'top' | 'bottom';

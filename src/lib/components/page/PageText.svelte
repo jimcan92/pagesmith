@@ -58,8 +58,17 @@
 	}
 	onDestroy(stop);
 
+	/** Like Word: Ctrl+click opens a link (in a new tab), a plain click edits the text. */
+	function linkClick(e: MouseEvent) {
+		const a = (e.target as HTMLElement).closest?.('a[href]') as HTMLAnchorElement | null;
+		if (!a) return false;
+		e.preventDefault();
+		if (e.ctrlKey || e.metaKey) { window.open(a.href, '_blank', 'noopener'); return true; }
+		return false;
+	}
 	function startEditing(e: MouseEvent) {
 		if (thumb) return;
+		if (linkClick(e)) { e.stopPropagation(); return; }
 		e.stopPropagation();
 		clickAt = { x: e.clientX, y: e.clientY };
 		doc.select(page.id);
@@ -69,7 +78,8 @@
 </script>
 
 {#if editing}
-	<div class="editor-host" bind:this={host} {style}></div>
+	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+	<div class="editor-host" bind:this={host} {style} onclick={linkClick}></div>
 {:else if hasText(page.html)}
 	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 	<div class="rt" class:editable={!thumb} {style} onclick={startEditing}>{@html page.html}</div>
@@ -82,6 +92,8 @@
 	.editor-host { flex: none; }
 	.editor-host :global(.rt) { min-height: 1.4em; }
 	.rt.editable { cursor: text; }
+	.rt :global(a), .editor-host :global(a) { color: #1155cc; text-decoration: underline; }
+	@media print { .rt :global(a) { color: #1155cc; } }
 	.rt.editable:hover { outline: 1px dashed rgba(47, 125, 225, 0.5); outline-offset: 2px; }
 	.add-text {
 		flex: none;

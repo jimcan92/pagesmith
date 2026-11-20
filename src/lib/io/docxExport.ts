@@ -18,7 +18,7 @@ import { htmlToContent } from 'docx/html';
 import JSZip from 'jszip';
 import { gridFor, pageDims, resolveBg } from '#lib/model/layout.ts';
 import { labelStyle } from '#lib/model/labels.ts';
-import { esc, hasText, plainText } from '#lib/model/sanitize.ts';
+import { esc, hasText, plainText, safeUrl } from '#lib/model/sanitize.ts';
 import type { Attachment, ContentPage, Page, Project } from '#lib/model/types.ts';
 import { imageBlob, storeImage } from '#lib/state/storage.ts';
 import { textHeight } from './fit';
@@ -80,6 +80,12 @@ function footerFor(project: Project, page: Page) {
 	return new Footer({ children: [new Paragraph({ alignment, children: [new TextRun({ children: [PageNumber.CURRENT], size: 20, font: 'Arial' })] })] });
 }
 
+/** A picture's html inside its link, when it has one (Word makes it a clickable picture). */
+function linked(a: Attachment, html: string) {
+	const href = safeUrl(a.link);
+	return href ? `<a href="${esc(href)}">${html}</a>` : html;
+}
+
 /** Grid pictures as an html table (sized to the space left under the text), for htmlToContent. */
 function picturesTableHtml(project: Project, pg: ContentPage, areaW: number, areaH: number) {
 	const { c, r } = gridFor(pg);
@@ -107,7 +113,7 @@ function picturesTableHtml(project: Project, pg: ContentPage, areaW: number, are
 			// labels "on the picture" are written above / below it in Word
 			const above = [title && (L.title.pos === 'above' || L.title.pos === 'top') ? lbl('title', title) : '', cap && (L.caption.pos === 'above' || L.caption.pos === 'top') ? lbl('caption', cap) : ''].join('');
 			const below = [cap && (L.caption.pos === 'below' || L.caption.pos === 'bottom') ? lbl('caption', cap) : '', title && (L.title.pos === 'below' || L.title.pos === 'bottom') ? lbl('title', title) : ''].join('');
-			html += `<td style="width:${Math.round(cellW)}px;vertical-align:middle;text-align:center">${above}<p style="margin:0;text-align:center"><img src="ps:${a.src}" width="${Math.round(iw)}" height="${Math.round(ih)}"></p>${below}</td>`;
+			html += `<td style="width:${Math.round(cellW)}px;vertical-align:middle;text-align:center">${above}<p style="margin:0;text-align:center">${linked(a, `<img src="ps:${a.src}" width="${Math.round(iw)}" height="${Math.round(ih)}">`)}</p>${below}</td>`;
 		}
 		html += '</tr>';
 	}
@@ -154,8 +160,10 @@ async function contentSection(project: Project, pg: ContentPage, imgCache: Map<s
 			if (pg.fit !== 'cover') { if (bw / bh > ar) bw = bh * ar; else bh = bw / ar; }
 			const x = m.left * PX + b.x * safeW + (b.w * safeW - bw) / 2;
 			const y = top + b.y * areaH + (b.h * areaH - bh) / 2;
+			const href = safeUrl(a.link);
 			runs.push(new ImageRun({
 				type: img.type, data: img.data,
+				...(href ? { link: href } : {}), // Word: Ctrl+click the picture opens the address
 				transformation: { width: bw, height: bh },
 				floating: {
 					horizontalPosition: { relative: HorizontalPositionRelativeFrom.PAGE, offset: Math.round((x / PX) * EMU) },
