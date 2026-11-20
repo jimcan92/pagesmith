@@ -11,7 +11,7 @@ export const DROP = new Set([
 ]);
 const STYLES = [
 	'text-align', 'font-weight', 'font-style', 'text-decoration', 'text-decoration-line', 'color',
-	'background-color', 'font-size', 'margin-left', 'padding-left'
+	'background-color', 'font-size', 'font-family', 'margin-left', 'padding-left'
 ];
 
 /** "283.5pt", "2in", "120" (px) or "25%" → { px } or { pct }. */

@@ -2,6 +2,8 @@
 	import { live, cmd } from '#lib/state/editor.svelte.ts';
 	import { doc } from '#lib/state/doc.svelte.ts';
 	import Group from './Group.svelte';
+	import Combo from './Combo.svelte';
+	import { FONTS, FONT_SIZES, DEFAULT_FONT, parseFontSize, firstFamily } from '#lib/model/fonts.ts';
 	import Bold from '@lucide/svelte/icons/bold';
 	import Italic from '@lucide/svelte/icons/italic';
 	import Underline from '@lucide/svelte/icons/underline';
@@ -30,6 +32,7 @@
 		return {
 			block: e.isActive('heading', { level: 1 }) ? 'h1' : e.isActive('heading', { level: 2 }) ? 'h2' : e.isActive('heading', { level: 3 }) ? 'h3' : 'p',
 			size: (ts.fontSize as string) || '',
+			family: firstFamily(ts.fontFamily as string),
 			color: toHex(ts.color as string),
 			bold: e.isActive('bold'), italic: e.isActive('italic'), underline: e.isActive('underline'), strike: e.isActive('strike'),
 			align: (['center', 'right', 'justify'] as const).find((a) => e.isActive({ textAlign: a })) || 'left',
@@ -45,7 +48,24 @@
 		const m = c.match(/rgba?\(\s*(\d+)\D+(\d+)\D+(\d+)/i);
 		return m ? '#' + m.slice(1, 4).map((n) => (+n).toString(16).padStart(2, '0')).join('') : '#000000';
 	}
-	const SIZES = ['8pt', '9pt', '10pt', '11pt', '12pt', '14pt', '16pt', '18pt', '20pt', '24pt', '28pt', '36pt', '48pt'];
+	/** The size Word would show: the set size, else the paragraph style's size. */
+	function shownSize(s: { size: string; block: string }) {
+		const set = s.size.match(/^([\d.]+)pt$/)?.[1];
+		if (set) return set;
+		if (s.size.endsWith('px')) return String(Math.round(parseFloat(s.size) * 0.75 * 2) / 2);
+		return { h1: '16', h2: '13.5', h3: '12' }[s.block] ?? '11';
+	}
+	function setSize(v: string) {
+		const n = parseFontSize(v);
+		if (n == null) return false;
+		cmd((c) => c.setFontSize(`${n}pt`));
+	}
+	function setFont(v: string) {
+		const name = v.replace(/["';{}<>]/g, '').trim();
+		if (!name) return false;
+		const known = FONTS.find((f) => f.toLowerCase() === name.toLowerCase()) ?? name;
+		cmd((c) => (known === DEFAULT_FONT ? c.unsetFontFamily() : c.setFontFamily(/\s/.test(known) ? `"${known}"` : known)));
+	}
 	const keep = (e: MouseEvent) => e.preventDefault(); // don't take the focus away from the text
 
 	function setBlock(v: string) {
@@ -67,14 +87,10 @@
 <Group label="Font">
 	<div class="rows">
 		<div class="row">
-			<select class="rs w-28" disabled={off} value={st?.block ?? 'p'} onchange={(e) => setBlock(e.currentTarget.value)} title="Paragraph style">
-				<option value="p">Normal</option><option value="h1">Heading 1</option><option value="h2">Heading 2</option><option value="h3">Heading 3</option>
-			</select>
-			<select class="rs" disabled={off} value={st?.size ?? ''} title="Font size"
-				onchange={(e) => { const v = e.currentTarget.value; cmd((c) => (v ? c.setFontSize(v) : c.unsetFontSize())); }}>
-				<option value="">Size</option>
-				{#each SIZES as s (s)}<option value={s}>{s.replace('pt', '')}</option>{/each}
-			</select>
+			<Combo width={138} listWidth={210} title="Font" disabled={off} options={FONTS} fontPreview
+				value={st?.family || DEFAULT_FONT} onpick={setFont} />
+			<Combo width={52} title="Font size" disabled={off} options={FONT_SIZES} filter={false}
+				value={st ? shownSize(st) : ''} onpick={setSize} />
 			<button class="rb" disabled={off} onmousedown={keep} onclick={() => cmd((c) => c.unsetAllMarks().clearNodes())} title="Clear formatting" aria-label="Clear formatting"><RemoveFormatting /></button>
 		</div>
 		<div class="row">
@@ -86,6 +102,10 @@
 				<span class="flex flex-col items-center"><Baseline /><span class="swatch" style="background:{st?.color ?? '#000000'}"></span></span>
 				<input type="color" disabled={off} value={st?.color ?? '#000000'} oninput={(e) => { const v = e.currentTarget.value; cmd((c) => c.setColor(v)); }} />
 			</label>
+			<span class="sep"></span>
+			<select class="rs w-24" disabled={off} value={st?.block ?? 'p'} onchange={(e) => setBlock(e.currentTarget.value)} title="Paragraph style">
+				<option value="p">Normal</option><option value="h1">Heading 1</option><option value="h2">Heading 2</option><option value="h3">Heading 3</option>
+			</select>
 		</div>
 	</div>
 </Group>

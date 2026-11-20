@@ -60,11 +60,14 @@ export async function parseDocx(arrayBuffer: ArrayBuffer, onProgress: (p: number
 
   /* ---- styles: default font size, paragraph style names */
   let defaultSz = 22;
+  let defaultFont = '';
   const styleInfo = {};
   if (styles) {
     const d = styles.getElementsByTagNameNS(NS.w, 'rPrDefault')[0];
     const sz = d && d.getElementsByTagNameNS(NS.w, 'sz')[0];
     if (sz) defaultSz = +val(sz) || 22;
+    const df = d && d.getElementsByTagNameNS(NS.w, 'rFonts')[0];
+    if (df) defaultFont = wAttr(df, 'ascii') || wAttr(df, 'hAnsi') || '';
     for (const s of all(styles, NS.w, 'style')) {
       const id = wAttr(s, 'styleId');
       const name = (val(kid(s, 'name')) || id || '').toLowerCase();
@@ -173,6 +176,9 @@ export async function parseDocx(arrayBuffer: ArrayBuffer, onProgress: (p: number
     const sz = szEl ? +val(szEl) : pStyleSz || defaultSz;
     if (color && color !== 'auto' && /^[0-9a-f]{6}$/i.test(color) && color.toLowerCase() !== '000000') st.push(`color:#${color}`);
     if (sz && Math.abs(sz - defaultSz) >= 2) st.push(`font-size:${sz / 2}pt`);
+    const fEl = kid(rPr, 'rFonts');
+    const font = fEl ? (wAttr(fEl, 'ascii') || wAttr(fEl, 'hAnsi') || '').replace(/["';<>{}]/g, '') : '';
+    if (font && font !== defaultFont) st.push(`font-family:${/\s/.test(font) ? `'${font}'` : font}`);
     let open = '', close = '';
     if (st.length) { open += `<span style="${st.join(';')}">`; close = '</span>' + close; }
     if (b) { open += '<b>'; close = '</b>' + close; }
