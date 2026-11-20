@@ -6,6 +6,12 @@
 	import { toast } from '#lib/state/toasts.svelte.ts';
 	import { moveOverflow } from '#lib/state/actions.ts';
 	import Group from './Group.svelte';
+	import RectangleVertical from '@lucide/svelte/icons/rectangle-vertical';
+	import RectangleHorizontal from '@lucide/svelte/icons/rectangle-horizontal';
+	import AlignTop from '@lucide/svelte/icons/align-vertical-justify-start';
+	import AlignMiddle from '@lucide/svelte/icons/align-vertical-justify-center';
+	import AlignBottom from '@lucide/svelte/icons/align-vertical-justify-end';
+	import ArrowDownToLine from '@lucide/svelte/icons/arrow-down-to-line';
 
 	const pg = $derived(doc.currentContent);
 	const bgs = $derived(pg ? doc.project.template.backgrounds.filter((b) => b.orientation === pg.orientation) : []);
@@ -43,8 +49,8 @@
 </script>
 
 <Group label="Page">
-	<button class="rb big" class:on={pg?.orientation === 'portrait'} disabled={!pg} onclick={() => setOrientation('portrait')}><span class="ico">▯</span>Portrait</button>
-	<button class="rb big" class:on={pg?.orientation === 'landscape'} disabled={!pg} onclick={() => setOrientation('landscape')}><span class="ico">▭</span>Landscape</button>
+	<button class="rb big" class:on={pg?.orientation === 'portrait'} disabled={!pg} onclick={() => setOrientation('portrait')}><RectangleVertical />Portrait</button>
+	<button class="rb big" class:on={pg?.orientation === 'landscape'} disabled={!pg} onclick={() => setOrientation('landscape')}><RectangleHorizontal />Landscape</button>
 	<div class="flex flex-col gap-1">
 		<select class="rs" disabled={!pg} value={bgValue} onchange={(e) => setBg(e.currentTarget.value)} title="Background of this page">
 			{#each bgs as b (b.id)}<option value={b.id}>{b.name}{b.src ? '' : ' (no image yet)'}</option>{/each}
@@ -57,8 +63,8 @@
 <Group label="Text on page">
 	<div class="flex flex-col gap-1">
 		<div class="flex gap-1">
-			{#each [['top', 'Top'], ['middle', 'Middle'], ['bottom', 'Bottom']] as [v, l] (v)}
-				<button class="rb" class:on={(pg?.textV || 'top') === v} disabled={!pg} onclick={() => textPos(v as 'top')}>{l}</button>
+			{#each [['top', 'Top', AlignTop], ['middle', 'Middle', AlignMiddle], ['bottom', 'Bottom', AlignBottom]] as const as [v, l, Ico] (v)}
+				<button class="rb" class:on={(pg?.textV || 'top') === v} disabled={!pg} onclick={() => textPos(v)}><Ico />{l}</button>
 			{/each}
 		</div>
 		<div class="flex gap-1">
@@ -71,7 +77,7 @@
 
 <Group label="Fit">
 	<button class="rb big" disabled={!pg || !doc.warnings[pg.id]} onclick={() => pg && moveOverflow(pg.id)} title="Move what doesn't fit onto the next page">
-		<span class="ico">⤵</span>Move overflow
+		<ArrowDownToLine />Move overflow
 	</button>
 </Group>
 

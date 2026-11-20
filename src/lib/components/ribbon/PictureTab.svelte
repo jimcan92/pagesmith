@@ -8,6 +8,16 @@
 	import { doc } from '#lib/state/doc.svelte.ts';
 	import { toast } from '#lib/state/toasts.svelte.ts';
 	import Group from './Group.svelte';
+	import ArrangePresets from './ArrangePresets.svelte';
+	import SendToBack from '@lucide/svelte/icons/send-to-back';
+	import BringToFront from '@lucide/svelte/icons/bring-to-front';
+	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import RotateCw from '@lucide/svelte/icons/rotate-cw';
+	import FileOutput from '@lucide/svelte/icons/file-output';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import Bold from '@lucide/svelte/icons/bold';
+	import Italic from '@lucide/svelte/icons/italic';
 
 	const pg = $derived(doc.selectedAtt ? (doc.pageById(doc.selectedAtt.pageId) as ContentPage | undefined) : undefined);
 	const i = $derived(doc.selectedAtt?.i ?? -1);
@@ -98,11 +108,15 @@
 		</div>
 		<div class="flex flex-col gap-1">
 			<div class="flex gap-1">
-				<button class="rb" onclick={() => order(-1)} disabled={i === 0} title={pg.layout === 'free' ? 'Send backward' : 'Move earlier'} aria-label={pg.layout === 'free' ? 'Send backward' : 'Move earlier'}>◀</button>
-				<button class="rb" onclick={() => order(1)} disabled={i === pg.attachments.length - 1} title={pg.layout === 'free' ? 'Bring forward' : 'Move later'} aria-label={pg.layout === 'free' ? 'Bring forward' : 'Move later'}>▶</button>
+				<button class="rb" onclick={() => order(-1)} disabled={i === 0} title={pg.layout === 'free' ? 'Send backward' : 'Move earlier'} aria-label={pg.layout === 'free' ? 'Send backward' : 'Move earlier'}>{#if pg.layout === 'free'}<SendToBack />{:else}<ChevronLeft />{/if}</button>
+				<button class="rb" onclick={() => order(1)} disabled={i === pg.attachments.length - 1} title={pg.layout === 'free' ? 'Bring forward' : 'Move later'} aria-label={pg.layout === 'free' ? 'Bring forward' : 'Move later'}>{#if pg.layout === 'free'}<BringToFront />{:else}<ChevronRight />{/if}</button>
 			</div>
-			<button class="rb" onclick={rotate} title="Rotate 90°">⟳ Rotate</button>
+			<button class="rb" onclick={rotate} title="Rotate 90°"><RotateCw />Rotate</button>
 		</div>
+	</Group>
+
+	<Group label="Quick arrangements (this page)">
+		<ArrangePresets page={pg} />
 	</Group>
 
 	<Group label="Titles & captions (this page)">
@@ -116,8 +130,8 @@
 					<select class="rs" value={L[k].size} onchange={(e) => setLabel(k, 'size', +e.currentTarget.value)}>
 						{#each SIZES as z (z)}<option value={z}>{z}</option>{/each}
 					</select>
-					<button class="rb" class:on={L[k].bold} onclick={() => setLabel(k, 'bold', !L[k].bold)}><b>B</b></button>
-					<button class="rb" class:on={L[k].italic} onclick={() => setLabel(k, 'italic', !L[k].italic)}><i>I</i></button>
+					<button class="rb" class:on={L[k].bold} onclick={() => setLabel(k, 'bold', !L[k].bold)} aria-label="Bold"><Bold /></button>
+					<button class="rb" class:on={L[k].italic} onclick={() => setLabel(k, 'italic', !L[k].italic)} aria-label="Italic"><Italic /></button>
 					<select class="rs" value={L[k].align} onchange={(e) => setLabel(k, 'align', e.currentTarget.value)}>
 						<option value="left">Left</option><option value="center">Center</option><option value="right">Right</option>
 					</select>
@@ -136,8 +150,8 @@
 
 	<Group label="Picture">
 		<div class="flex flex-col gap-1">
-			<button class="rb" onclick={ownPage} title="Move this picture to a new page after this one">⇲ Own page</button>
-			<button class="rb text-error" onclick={remove} title="Remove this picture (Delete key)">✕ Delete</button>
+			<button class="rb" onclick={ownPage} title="Move this picture to a new page after this one"><FileOutput />Own page</button>
+			<button class="rb text-error" onclick={remove} title="Remove this picture (Delete key)"><Trash2 />Delete</button>
 		</div>
 	</Group>
 	<div class="ribbon-tip"><div>Type the title and caption right on the page. Drag the picture to another page (or a thumbnail) to move it.</div></div>

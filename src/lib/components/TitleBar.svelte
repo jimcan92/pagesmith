@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { doc } from '#lib/state/doc.svelte.ts';
-	import { openDialog } from '#lib/state/ui.svelte.ts';
-	import { exportPdf, openFromDisk, saveDocx } from '#lib/state/files.ts';
-
-	let fileMenu = $state<HTMLDetailsElement>();
-	const close = () => fileMenu && (fileMenu.open = false);
+	import { exportPdf, saveDocx } from '#lib/state/files.ts';
+	import Save from '@lucide/svelte/icons/save';
+	import Undo2 from '@lucide/svelte/icons/undo-2';
+	import Redo2 from '@lucide/svelte/icons/redo-2';
+	import Printer from '@lucide/svelte/icons/printer';
 </script>
 
 <header class="titlebar no-print">
@@ -16,22 +16,15 @@
 		</div>
 	</div>
 
-	<details class="dropdown" bind:this={fileMenu}>
-		<summary class="btn btn-sm btn-ghost text-white">File ▾</summary>
-		<ul class="menu dropdown-content bg-base-100 text-base-content rounded-box shadow-lg border border-base-300 w-60 p-1 z-50">
-			<li><button onclick={() => { close(); openDialog('new'); }}>New…</button></li>
-			<li><button onclick={() => { close(); openFromDisk(); }}>Open… <kbd class="kbd kbd-xs ml-auto">Ctrl O</kbd></button></li>
-			<li><button onclick={() => { close(); saveDocx(); }}>Save (.docx) <kbd class="kbd kbd-xs ml-auto">Ctrl S</kbd></button></li>
-			<li><button onclick={() => { close(); saveDocx(true); }}>Save as…</button></li>
-			<li><button onclick={() => { close(); exportPdf(); }}>Export PDF / Print <kbd class="kbd kbd-xs ml-auto">Ctrl P</kbd></button></li>
-		</ul>
-	</details>
+	<div class="quick">
+		<button class="qa" onclick={() => saveDocx()} title="Save (Ctrl+S)" aria-label="Save"><Save /></button>
+		<button class="qa" disabled={!doc.canUndo} onclick={() => doc.undo()} title="Undo (Ctrl+Z)" aria-label="Undo"><Undo2 /></button>
+		<button class="qa" disabled={!doc.canRedo} onclick={() => doc.redo()} title="Redo (Ctrl+Y)" aria-label="Redo"><Redo2 /></button>
+	</div>
 
 	<div class="grow"></div>
-	<button class="btn btn-sm btn-ghost text-white text-lg" disabled={!doc.canUndo} onclick={() => doc.undo()} title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
-	<button class="btn btn-sm btn-ghost text-white text-lg" disabled={!doc.canRedo} onclick={() => doc.redo()} title="Redo (Ctrl+Y)" aria-label="Redo">↷</button>
-	<button class="btn btn-sm btn-secondary" onclick={() => saveDocx()} title="Save as a Word file (Ctrl+S)">Save</button>
-	<button class="btn btn-sm btn-secondary btn-outline text-white" onclick={exportPdf}>Export PDF</button>
+	<button class="btn btn-sm btn-secondary" onclick={() => saveDocx()} title="Save as a Word file (Ctrl+S)"><Save size={15} />Save</button>
+	<button class="btn btn-sm btn-secondary btn-outline text-white" onclick={exportPdf} title="Export PDF / Print (Ctrl+P)"><Printer size={15} />Export PDF</button>
 </header>
 
 <style>
@@ -56,5 +49,9 @@
 		padding: 1px 6px; margin-left: -6px; border-radius: 6px; width: min(380px, 36vw);
 	}
 	.name:hover, .name:focus { border-color: rgba(255, 255, 255, 0.4); outline: none; background: rgba(255, 255, 255, 0.08); }
-	.btn:disabled { opacity: 0.35; background: transparent; color: #fff; }
+	.quick { display: flex; align-items: center; gap: 2px; margin-left: 14px; padding-left: 12px; border-left: 1px solid rgba(255, 255, 255, 0.25); }
+	.qa { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 5px; background: transparent; border: none; color: #fff; cursor: pointer; }
+	.qa:hover:not(:disabled) { background: rgba(255, 255, 255, 0.14); }
+	.qa:disabled { opacity: 0.35; cursor: default; }
+	.qa :global(svg) { width: 18px; height: 18px; stroke-width: 1.85; }
 </style>

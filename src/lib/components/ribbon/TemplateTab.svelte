@@ -5,6 +5,10 @@
 	import { toast } from '#lib/state/toasts.svelte.ts';
 	import { kvSet } from '#lib/state/storage.ts';
 	import Group from './Group.svelte';
+	import LayoutTemplate from '@lucide/svelte/icons/layout-template';
+	import Upload from '@lucide/svelte/icons/upload';
+	import Download from '@lucide/svelte/icons/download';
+	import Star from '@lucide/svelte/icons/star';
 
 	async function importTpl() {
 		const t = await importTemplateFile();
@@ -23,10 +27,10 @@
 </script>
 
 <Group label="Template">
-	<button class="rb big" onclick={() => openDialog('template')} title="Cover, backgrounds, special backgrounds and margins"><span class="ico">✎</span>Edit template</button>
-	<button class="rb big" onclick={importTpl} title="Load a .template.json file"><span class="ico">⤓</span>Import</button>
-	<button class="rb big" onclick={() => exportTemplate($state.snapshot(doc.project.template))} title="Save the template as a file to share"><span class="ico">⤒</span>Export</button>
-	<button class="rb big" onclick={asDefault} title="Use this template for new documents on this computer"><span class="ico">☆</span>Set default</button>
+	<button class="rb big" onclick={() => openDialog('template')} title="Cover, backgrounds, special backgrounds and margins"><LayoutTemplate />Edit template</button>
+	<button class="rb big" onclick={importTpl} title="Load a .template.json file"><Upload />Import</button>
+	<button class="rb big" onclick={() => exportTemplate($state.snapshot(doc.project.template))} title="Save the template as a file to share"><Download />Export</button>
+	<button class="rb big" onclick={asDefault} title="Use this template for new documents on this computer"><Star />Set default</button>
 </Group>
 <div class="self-center text-xs opacity-70 px-3 max-w-72 leading-snug">
 	Current template: <b>{doc.project.template.name}</b>. Share it with “Export” so every team uses the same look.
