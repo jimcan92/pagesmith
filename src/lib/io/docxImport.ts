@@ -10,8 +10,10 @@
  * Headers and footers are ignored (the Pagesmith template provides them).
  */
 import JSZip from 'jszip';
+import { borderFromLn } from '#lib/model/border.ts';
+import type { PicBorder } from '#lib/model/types.ts';
 
-export interface DocxPicture { path: string; type: string; wIn: number; hIn: number; flow: boolean; link?: string }
+export interface DocxPicture { path: string; type: string; wIn: number; hIn: number; flow: boolean; link?: string; border?: PicBorder }
 export interface DocxPage { index: number; landscape: boolean; html: string; pics: DocxPicture[]; zeroMargins: boolean }
 export interface DocxResult {
   pages: DocxPage[];
@@ -156,7 +158,13 @@ export async function parseDocx(arrayBuffer: ArrayBuffer, onProgress: (p: number
       if (fullWidth || strip || tiny) { skippedBg += blips.length; continue; }
       for (const b of blips) {
         const rid = b.getAttributeNS(NS.r, 'embed') || b.getAttributeNS(NS.r, 'link');
-        out.push({ rid, link, wIn: wIn / Math.max(1, blips.length > 1 ? Math.sqrt(blips.length) : 1), hIn, flow: wrap === 'inline' || wrap === 'wrapTopAndBottom' || wrap === 'wrapSquare' });
+        // Word's Picture Border: <a:ln> in the picture's own shape properties
+        const pic = b.closest ? b.parentNode && b.parentNode.parentNode : null;
+        const spPr = pic && Array.from(pic.children).find((c) => c.localName === 'spPr');
+        const ln = spPr && Array.from(spPr.children).find((c) => c.localName === 'ln');
+        const border = ln ? borderFromLn(ln.getAttribute('w'), ln.getElementsByTagNameNS(NS.a, 'srgbClr')[0]?.getAttribute('val') ?? null,
+          ln.getElementsByTagNameNS(NS.a, 'schemeClr')[0]?.getAttribute('val') ?? null, ln.getElementsByTagNameNS(NS.a, 'noFill').length > 0) : undefined;
+        out.push({ rid, link, border, wIn: wIn / Math.max(1, blips.length > 1 ? Math.sqrt(blips.length) : 1), hIn, flow: wrap === 'inline' || wrap === 'wrapTopAndBottom' || wrap === 'wrapSquare' });
       }
     }
     // old VML pictures
@@ -171,7 +179,7 @@ export async function parseDocx(arrayBuffer: ArrayBuffer, onProgress: (p: number
       const path = target.startsWith('/') ? target.slice(1) : 'word/' + target.replace(/^\.\//, '');
       const extName = (path.split('.').pop() || '').toLowerCase();
       if (!IMG_TYPES[extName]) { skippedUnsupported++; continue; }
-      const img = { path, type: IMG_TYPES[extName], wIn: p.wIn, hIn: p.hIn, flow: p.flow, ...(p.link ? { link: p.link } : {}) };
+      const img = { path, type: IMG_TYPES[extName], wIn: p.wIn, hIn: p.hIn, flow: p.flow, ...(p.link ? { link: p.link } : {}), ...(p.border ? { border: p.border } : {}) };
       images.push(img);
       res.push(img);
     }

@@ -19,6 +19,7 @@ import JSZip from 'jszip';
 import { gridFor, pageDims, resolveBg } from '#lib/model/layout.ts';
 import { labelStyle } from '#lib/model/labels.ts';
 import { esc, hasText, plainText, safeUrl } from '#lib/model/sanitize.ts';
+import { cleanBorder, EMU_PER_PT, lnXml } from '#lib/model/border.ts';
 import type { Attachment, ContentPage, Page, Project } from '#lib/model/types.ts';
 import { imageBlob, storeImage } from '#lib/state/storage.ts';
 import { textHeight } from './fit';
@@ -86,6 +87,23 @@ function linked(a: Attachment, html: string) {
 	return href ? `<a href="${esc(href)}">${html}</a>` : html;
 }
 
+/** The html route can't give pictures a border, so bordered ones carry a marker in their alt text
+ *  that addBorders() turns into Word's picture border after the file is made. */
+const BORDER_MARK = 'ps-border:';
+function borderMark(a: Attachment) {
+	const b = cleanBorder(a.border);
+	return b ? ` alt="${BORDER_MARK}${b.w}:${b.color.slice(1)}"` : '';
+}
+export function addBorders(docXml: string): string {
+	return docXml.replace(/<w:drawing>[\s\S]*?<\/w:drawing>/g, (d) => {
+		const m = d.match(new RegExp(`descr="${BORDER_MARK}([\\d.]+):([0-9a-fA-F]{6})"`));
+		if (!m) return d;
+		const ln = lnXml({ w: +m[1], color: '#' + m[2] });
+		const mark = m[0].slice('descr="'.length, -1);
+		return d.replace(new RegExp(`(name|descr)="${mark.replace(/[.]/g, '\\.')}"`, 'g'), (_, k) => (k === 'name' ? 'name="Picture"' : 'descr=""')).replace(/<a:ln\b[\s\S]*?(<\/a:ln>|\/>)/, '').replace('</pic:spPr>', ln + '</pic:spPr>');
+	});
+}
+
 /** Grid pictures as an html table (sized to the space left under the text), for htmlToContent. */
 function picturesTableHtml(project: Project, pg: ContentPage, areaW: number, areaH: number) {
 	const { c, r } = gridFor(pg);
@@ -113,7 +131,7 @@ function picturesTableHtml(project: Project, pg: ContentPage, areaW: number, are
 			// labels "on the picture" are written above / below it in Word
 			const above = [title && (L.title.pos === 'above' || L.title.pos === 'top') ? lbl('title', title) : '', cap && (L.caption.pos === 'above' || L.caption.pos === 'top') ? lbl('caption', cap) : ''].join('');
 			const below = [cap && (L.caption.pos === 'below' || L.caption.pos === 'bottom') ? lbl('caption', cap) : '', title && (L.title.pos === 'below' || L.title.pos === 'bottom') ? lbl('title', title) : ''].join('');
-			html += `<td style="width:${Math.round(cellW)}px;vertical-align:middle;text-align:center">${above}<p style="margin:0;text-align:center">${linked(a, `<img src="ps:${a.src}" width="${Math.round(iw)}" height="${Math.round(ih)}">`)}</p>${below}</td>`;
+			html += `<td style="width:${Math.round(cellW)}px;vertical-align:middle;text-align:center">${above}<p style="margin:0;text-align:center">${linked(a, `<img src="ps:${a.src}" width="${Math.round(iw)}" height="${Math.round(ih)}"${borderMark(a)}>`)}</p>${below}</td>`;
 		}
 		html += '</tr>';
 	}
@@ -164,6 +182,7 @@ async function contentSection(project: Project, pg: ContentPage, imgCache: Map<s
 			runs.push(new ImageRun({
 				type: img.type, data: img.data,
 				...(href ? { link: href } : {}), // Word: Ctrl+click the picture opens the address
+				...(a.border ? { outline: { width: Math.round(a.border.w * EMU_PER_PT), type: 'solidFill' as const, solidFillType: 'rgb' as const, value: a.border.color.slice(1).toUpperCase() } } : {}),
 				transformation: { width: bw, height: bh },
 				floating: {
 					horizontalPosition: { relative: HorizontalPositionRelativeFrom.PAGE, offset: Math.round((x / PX) * EMU) },
@@ -224,7 +243,8 @@ const fromBase64 = (s: string) => new TextDecoder().decode(Uint8Array.from(atob(
 
 async function embedProject(docx: Blob, project: Project): Promise<Blob> {
 	const zip = await JSZip.loadAsync(docx);
-	const docXml = await zip.file('word/document.xml')!.async('string');
+	const docXml = addBorders(await zip.file('word/document.xml')!.async('string'));
+	zip.file('word/document.xml', docXml);
 	const images: Record<string, string> = {};
 	const ids = new Set((JSON.stringify(project).match(/img_\w+/g) || []));
 	for (const id of ids) { const b = imageBlob(id); if (b) images[id] = await sha256(await b.arrayBuffer()); }

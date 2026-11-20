@@ -20,6 +20,14 @@
 
 	const isSel = (i: number) => !thumb && doc.selectedAtt?.pageId === page.id && doc.selectedAtt.i === i;
 	const boxOf = (a: Attachment, i: number): Box => a.box ?? cascadeBox(i);
+	/** The border frame: the picture's own shape inside its box (whole box when the picture fills it). */
+	function borderStyle(a: Attachment) {
+		const b = a.border!;
+		const size = page.fit === 'cover' || !a.ar
+			? 'width:100%;height:100%'
+			: `width:min(100cqw,calc(100cqh * ${a.ar}));height:min(100cqh,calc(100cqw / ${a.ar}))`;
+		return `${size};border:${b.w}pt solid ${b.color}`;
+	}
 	const boxStyle = (b: Box) => `left:${b.x * 100}%;top:${b.y * 100}%;width:${b.w * 100}%;height:${b.h * 100}%`;
 
 	/** Which labels go where: above / on top / on bottom / below. */
@@ -224,6 +232,10 @@
 			{#each p.above as k (k)}{@render label(a, k, sel)}{/each}
 			<div class="imgbox">
 				<img alt="" draggable="false" src={imageUrl(a.src)} style="object-fit:{page.fit === 'cover' ? 'cover' : 'contain'}" />
+				{#if a.border}
+					<!-- drawn around the picture itself (not the empty space beside it), so it also prints in the PDF -->
+					<span class="pic-border" style={borderStyle(a)}></span>
+				{/if}
 				{#if a.link && !thumb}
 					<!-- a real link over the picture: the browser keeps it in the PDF (Print → Save as PDF) -->
 					<a class="pic-link" href={a.link} target="_blank" rel="noopener noreferrer nofollow" aria-label="Open {a.link}" tabindex="-1"></a>
@@ -253,6 +265,11 @@
 	figure.selected { outline: calc(2px / var(--s, 1)) solid #2f7de1 !important; z-index: 5; }
 	:global(figure.drag-source) { opacity: 0.35; }
 	.free-item { position: absolute; margin: 0; }
+	.imgbox:has(.pic-border) { container-type: size; }
+	.pic-border {
+		position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+		box-sizing: border-box; pointer-events: none; z-index: 1;
+	}
 	/* on screen the picture is dragged, not followed: the link only works in the PDF (and from the chip) */
 	.pic-link { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
 	.link-chip {

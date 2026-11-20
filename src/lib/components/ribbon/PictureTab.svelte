@@ -18,6 +18,8 @@
 	import FileOutput from '@lucide/svelte/icons/file-output';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import Link2 from '@lucide/svelte/icons/link-2';
+	import Square from '@lucide/svelte/icons/square';
+	import { BORDER_WIDTHS, DEFAULT_BORDER } from '#lib/model/border.ts';
 	import { openLinkDialog } from '#lib/state/links.ts';
 	import Bold from '@lucide/svelte/icons/bold';
 	import Italic from '@lucide/svelte/icons/italic';
@@ -46,6 +48,21 @@
 		doc.project.pages.forEach((p) => { if (p.type === 'content') { p.labels = structuredClone(l); p.showCaptions = pg!.showCaptions; } });
 		doc.touch();
 		toast('Title & caption settings applied to all pages');
+	}
+	function setBorder(w: number, color?: string) {
+		if (!a) return;
+		if (!w) delete a.border;
+		else a.border = { w, color: color ?? a.border?.color ?? DEFAULT_BORDER.color };
+		doc.touch();
+	}
+	function borderTo(where: 'page' | 'all') {
+		if (!pg || !a) return;
+		const b = a.border ? { ...a.border } : undefined;
+		const pages = where === 'page' ? [pg] : doc.project.pages.filter((p): p is ContentPage => p.type === 'content');
+		let n = 0;
+		for (const p of pages) for (const x of p.attachments) { if (b) x.border = { ...b }; else delete x.border; n++; }
+		doc.touch();
+		toast(b ? `${b.w} pt border on ${n} picture(s)` : `Border removed from ${n} picture(s)`);
 	}
 	function order(d: -1 | 1) {
 		if (!pg || !a) return;
@@ -127,6 +144,25 @@
 					<input type="color" value={L[k].color} oninput={(e) => setLabel(k, 'color', e.currentTarget.value)} />
 				</div>
 			{/each}
+		</div>
+	</Group>
+
+	<Group label="Border">
+		<div class="rows">
+			<div class="row">
+				<select class="rs" value={a.border ? String(a.border.w) : '0'} onchange={(e) => setBorder(+e.currentTarget.value)} title="Line around this picture">
+					<option value="0">No border</option>
+					{#each BORDER_WIDTHS as w (w)}<option value={String(w)}>{w} pt</option>{/each}
+				</select>
+				<label class="rb color-btn" class:disabled={!a.border} title="Border color">
+					<span class="flex flex-col items-center"><Square /><span class="swatch" style="background:{a.border?.color ?? '#000000'}"></span></span>
+					<input type="color" disabled={!a.border} value={a.border?.color ?? '#000000'} oninput={(e) => setBorder(a.border?.w ?? DEFAULT_BORDER.w, e.currentTarget.value)} />
+				</label>
+			</div>
+			<div class="row">
+				<button class="rb" onclick={() => borderTo('page')} title="Give every picture on this page the same border">This page</button>
+				<button class="rb" onclick={() => borderTo('all')} title="Give every picture in the document the same border">All pages</button>
+			</div>
 		</div>
 	</Group>
 

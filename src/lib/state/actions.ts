@@ -142,6 +142,7 @@ export async function buildWordPages(parsed: DocxResult, fileName: string, opts:
 				const a = newAtt(info.id, info.w, info.h);
 				const link = safeUrl(img.link);
 				if (link) a.link = link;
+				if (img.border) a.border = { ...img.border };
 				if (pg.layout === 'free') placeFree(pg, a);
 				pg.attachments.push(a);
 			} catch (e) {

@@ -39,6 +39,12 @@ export interface Attachment {
 	ar?: number; // picture width / height
 	box?: Box;
 	link?: string; // web address the picture opens (kept in .docx and PDF)
+	border?: PicBorder; // a line around the picture, like Word's Picture Border
+}
+
+export interface PicBorder {
+	w: number; // points
+	color: string; // #rrggbb
 }
 
 export type LabelPos = 'above' | 'below' | 'top' | 'bottom';
